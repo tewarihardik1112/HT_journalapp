@@ -73,6 +73,7 @@ function Orbs() {
       ].map((o, i) => (
         <div
           key={i}
+          className="orb-element"
           style={{
             position: "absolute",
             top: o.top,
@@ -205,10 +206,11 @@ function Reveal({ children, delay = 0, direction = "up", style = {} }) {
 }
 
 /* ─── section wrapper ─── */
-function Section({ children, id, style = {} }) {
+function Section({ children, id, style = {}, className = "" }) {
   return (
     <section
       id={id}
+      className={`section-wrapper ${className}`}
       style={{
         position: "relative",
         zIndex: 2,
@@ -244,13 +246,14 @@ function SectionLabel({ children }) {
 }
 
 /* ─── CTA button ─── */
-function CTAButton({ children, primary = true, style = {} }) {
+function CTAButton({ children, primary = true, style = {}, className = "" }) {
   const [hovered, setHovered] = useState(false);
 
   return (
     <button
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      className={className}
       style={{
         fontFamily: "'Outfit', sans-serif",
         fontSize: 15,
@@ -280,7 +283,7 @@ function CTAButton({ children, primary = true, style = {} }) {
 }
 
 /* ─── phone mockup ─── */
-function PhoneMockup({ screen, style = {}, tilt = false }) {
+function PhoneMockup({ screen, style = {}, tilt = false, className = "" }) {
   const [transform, setTransform] = useState(
     tilt
       ? "perspective(1400px) rotateY(-10deg) rotateX(6deg) scale(1)"
@@ -314,6 +317,7 @@ function PhoneMockup({ screen, style = {}, tilt = false }) {
     <div
       onMouseMove={handleMove}
       onMouseLeave={reset}
+      className={`phone-mockup ${className}`}
       style={{
         width: 280,
         height: 560,
@@ -451,6 +455,7 @@ function TasksScreen() {
               justifyContent: "center",
               fontSize: 10,
               color: "#09090b",
+              flexShrink: 0,
             }}
           >
             {t.done && "✓"}
@@ -640,13 +645,14 @@ function ProfileScreen() {
             fontSize: 16,
             fontWeight: 700,
             color: AMBER,
+            flexShrink: 0,
           }}
         >
           H
         </div>
-        <div>
+        <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>Harshit Tomar</div>
-          <div style={{ fontSize: 10, color: "#71717a" }}>harshittomar@gmail.abc</div>
+          <div style={{ fontSize: 10, color: "#71717a", overflow: "hidden", textOverflow: "ellipsis" }}>harshittomar@gmail.abc</div>
         </div>
       </div>
 
@@ -710,6 +716,7 @@ function ProfileScreen() {
               borderRadius: 10,
               background: i === 0 ? TEAL : "rgba(255,255,255,0.1)",
               position: "relative",
+              flexShrink: 0,
             }}
           >
             <div
@@ -732,9 +739,10 @@ function ProfileScreen() {
 }
 
 /* ─── floating UI card ─── */
-function FloatingCard({ children, style = {} }) {
+function FloatingCard({ children, style = {}, className = "" }) {
   return (
     <div
+      className={`floating-card ${className}`}
       style={{
         background: "linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.03))",
         backdropFilter: "blur(18px)",
@@ -767,6 +775,15 @@ function Header() {
     return () => window.removeEventListener("scroll", handler);
   }, []);
 
+  // Close mobile menu on resize to desktop
+  useEffect(() => {
+    const handler = () => {
+      if (window.innerWidth > 768) setMobileOpen(false);
+    };
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+
   const links = ["Features", "Showcase", "Why", "FAQ"];
 
   return (
@@ -777,7 +794,7 @@ function Header() {
         left: 0,
         right: 0,
         zIndex: 100,
-        padding: "0 20px",
+        padding: "0 16px",
       }}
     >
       <div
@@ -801,6 +818,7 @@ function Header() {
             ? "0 20px 60px rgba(0,0,0,0.35)"
             : "0 12px 40px rgba(0,0,0,0.22)",
           transition: "all 0.35s ease",
+          gap: 12,
         }}
       >
         {/* logo */}
@@ -809,12 +827,15 @@ function Header() {
             display: "flex",
             alignItems: "center",
             gap: 12,
+            minWidth: 0,
+            flex: "0 1 auto",
           }}
         >
           <div
             style={{
               width: 42,
               height: 42,
+              minWidth: 42,
               borderRadius: 14,
               background: `linear-gradient(135deg, ${TEAL}30, ${MINT}18)`,
               border: `1px solid ${TEAL}35`,
@@ -841,7 +862,7 @@ function Header() {
             ✓
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", lineHeight: 1 }}>
+          <div className="header-logo-text" style={{ display: "flex", flexDirection: "column", lineHeight: 1, minWidth: 0 }}>
             <span
               style={{
                 fontFamily: "'Outfit', sans-serif",
@@ -849,11 +870,15 @@ function Header() {
                 fontWeight: 700,
                 color: "#fff",
                 letterSpacing: "-0.03em",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
               }}
             >
               Smart Tasks · Liquid Glass
             </span>
             <span
+              className="header-subtitle"
               style={{
                 fontFamily: "'JetBrains Mono', monospace",
                 fontSize: 10,
@@ -908,6 +933,7 @@ function Header() {
                   boxShadow: active ? `0 0 24px ${TEAL}10` : "none",
                   transition: "all 0.25s ease",
                   overflow: "hidden",
+                  whiteSpace: "nowrap",
                 }}
               >
                 <span style={{ position: "relative", zIndex: 2 }}>{l}</span>
@@ -949,9 +975,11 @@ function Header() {
             display: "flex",
             alignItems: "center",
             gap: 12,
+            flex: "0 0 auto",
           }}
         >
           <CTAButton
+            className="header-cta"
             style={{
               padding: "13px 26px",
               fontSize: 14,
@@ -976,6 +1004,7 @@ function Header() {
               fontSize: 20,
               cursor: "pointer",
               backdropFilter: "blur(12px)",
+              flexShrink: 0,
             }}
           >
             {mobileOpen ? "✕" : "☰"}
@@ -1021,7 +1050,7 @@ function Header() {
               {l}
             </a>
           ))}
-          <CTAButton style={{ marginTop: 8 }}>Download App</CTAButton>
+          <CTAButton style={{ marginTop: 8, width: "100%" }}>Download App</CTAButton>
         </div>
       )}
     </header>
@@ -1035,375 +1064,393 @@ function Hero() {
   return (
     <Section
       id="hero"
+      className="hero-section"
       style={{
         paddingTop: 150,
         paddingBottom: 80,
         minHeight: "100vh",
-        display: "grid",
-        gridTemplateColumns: "1.05fr 0.95fr",
-        gap: 40,
+        display: "flex",
         alignItems: "center",
       }}
-      className="hero-grid"
     >
-      <div style={{ position: "relative", zIndex: 2 }}>
-        <Reveal delay={0}>
+      <div className="hero-grid">
+        {/* Text content */}
+        <div style={{ position: "relative", zIndex: 2 }}>
+          <Reveal delay={0}>
+            <div
+              className="hero-badge"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 10,
+                background: "rgba(255,255,255,0.05)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: 999,
+                padding: "8px 18px",
+                marginBottom: 28,
+                boxShadow: `0 0 30px ${TEAL}12`,
+              }}
+            >
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  background: TEAL,
+                  boxShadow: `0 0 14px ${TEAL}`,
+                  animation: "pulseDot 2s ease-in-out infinite",
+                  flexShrink: 0,
+                }}
+              />
+              <span
+                className="hero-badge-text"
+                style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 11,
+                  color: "#d4d4d8",
+                  letterSpacing: 1.5,
+                }}
+              >
+                ANDROID APP · TASKS · JOURNAL · INSIGHTS
+              </span>
+            </div>
+          </Reveal>
+
+          <Reveal delay={0.1}>
+            <h1
+              className="hero-title"
+              style={{
+                fontFamily: "'Outfit', sans-serif",
+                fontSize: "clamp(36px, 7vw, 82px)",
+                fontWeight: 800,
+                color: "#fff",
+                lineHeight: 1.02,
+                letterSpacing: "-0.05em",
+                marginBottom: 24,
+                maxWidth: 760,
+              }}
+            >
+              Tasks, Journaling,
+              <br />
+              and Insights —
+              <br />
+              <span
+                style={{
+                  background: `linear-gradient(135deg, ${TEAL}, ${MINT})`,
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  textShadow: `0 0 30px ${TEAL}25`,
+                }}
+              >
+                All in one place.
+              </span>
+            </h1>
+          </Reveal>
+
+          <Reveal delay={0.2}>
+            <p
+              style={{
+                fontFamily: "'Outfit', sans-serif",
+                fontSize: "clamp(15px, 2vw, 20px)",
+                color: "#a1a1aa",
+                maxWidth: 580,
+                lineHeight: 1.8,
+                marginBottom: 34,
+              }}
+            >
+              Plan your day, reflect on your thoughts, and track your progress with a
+              single app designed to keep you organized, consistent, and aware.
+            </p>
+          </Reveal>
+
+          <Reveal delay={0.3}>
+            <div
+              className="hero-buttons"
+              style={{
+                display: "flex",
+                gap: 14,
+                flexWrap: "wrap",
+                alignItems: "center",
+                marginBottom: 28,
+              }}
+            >
+              <CTAButton
+                style={{
+                  padding: "16px 34px",
+                  fontSize: 15,
+                  boxShadow: `0 16px 40px ${TEAL}35`,
+                }}
+              >
+                Download App
+              </CTAButton>
+
+              <CTAButton
+                primary={false}
+                style={{
+                  padding: "16px 30px",
+                  fontSize: 15,
+                  background: "rgba(255,255,255,0.03)",
+                }}
+              >
+                Explore Features →
+              </CTAButton>
+            </div>
+          </Reveal>
+
+          <Reveal delay={0.4}>
+            <div
+              className="hero-stats"
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 22,
+                alignItems: "center",
+              }}
+            >
+              {[
+                { value: "Tasks", label: "Daily planning" },
+                { value: "Journal", label: "Thought tracking" },
+                { value: "Insights", label: "Weekly progress" },
+              ].map((item, i) => (
+                <div key={i}>
+                  <div
+                    style={{
+                      fontFamily: "'Outfit', sans-serif",
+                      fontSize: 18,
+                      fontWeight: 700,
+                      color: "#fff",
+                      marginBottom: 2,
+                    }}
+                  >
+                    {item.value}
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: "'Outfit', sans-serif",
+                      fontSize: 12,
+                      color: "#71717a",
+                    }}
+                  >
+                    {item.label}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Reveal>
+        </div>
+
+        {/* Phone visual */}
+        <Reveal delay={0.35} direction="scale">
           <div
+            className="hero-visual"
             style={{
-              display: "inline-flex",
+              position: "relative",
+              display: "flex",
+              justifyContent: "center",
               alignItems: "center",
-              gap: 10,
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              borderRadius: 999,
-              padding: "8px 18px",
-              marginBottom: 28,
-              boxShadow: `0 0 30px ${TEAL}12`,
+              minHeight: 650,
+              transform: `translate(${mouse.x}px, ${mouse.y}px)`,
+              transition: "transform 0.25s ease-out",
+              perspective: 1600,
             }}
           >
-            <span
+            {/* glow layers */}
+            <div
+              className="hero-glow"
               style={{
-                width: 8,
-                height: 8,
+                position: "absolute",
+                width: 560,
+                height: 560,
                 borderRadius: "50%",
-                background: TEAL,
-                boxShadow: `0 0 14px ${TEAL}`,
-                animation: "pulseDot 2s ease-in-out infinite",
+                background: `radial-gradient(circle, ${TEAL}14 0%, transparent 65%)`,
+                filter: "blur(50px)",
+                animation: "heroGlow 7s ease-in-out infinite alternate",
               }}
             />
-            <span
+            <div
+              className="hero-glow"
               style={{
-                fontFamily: "'JetBrains Mono', monospace",
-                fontSize: 11,
-                color: "#d4d4d8",
-                letterSpacing: 1.5,
+                position: "absolute",
+                width: 420,
+                height: 420,
+                borderRadius: "50%",
+                background: `radial-gradient(circle, ${AMBER}10 0%, transparent 68%)`,
+                filter: "blur(55px)",
+                top: 80,
+                right: 0,
+                animation: "heroGlow 6s ease-in-out infinite alternate-reverse",
+              }}
+            />
+            <div
+              className="hero-glow"
+              style={{
+                position: "absolute",
+                width: 320,
+                height: 320,
+                borderRadius: "50%",
+                background: `radial-gradient(circle, ${BLUE}10 0%, transparent 68%)`,
+                filter: "blur(45px)",
+                bottom: 60,
+                left: 10,
+                animation: "heroGlow 5.5s ease-in-out infinite alternate",
+              }}
+            />
+
+            {/* side depth card — hidden on mobile */}
+            <div
+              className="hero-depth-card"
+              style={{
+                position: "absolute",
+                width: 240,
+                height: 500,
+                borderRadius: 34,
+                background: "linear-gradient(145deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))",
+                border: "1px solid rgba(255,255,255,0.05)",
+                transform: "perspective(1200px) rotateY(28deg) translateX(80px) scale(0.92)",
+                right: 20,
+                zIndex: 1,
+                opacity: 0.7,
+              }}
+            />
+
+            <PhoneMockup
+              screen={<TasksScreen />}
+              tilt
+              className="hero-phone"
+              style={{
+                position: "relative",
+                zIndex: 3,
+              }}
+            />
+
+            <FloatingCard
+              className="hero-floating-card"
+              style={{
+                position: "absolute",
+                top: 75,
+                right: -10,
+                zIndex: 4,
+                animationDelay: "0.4s",
+                minWidth: 180,
               }}
             >
-              ANDROID APP · TASKS · JOURNAL · INSIGHTS
-            </span>
-          </div>
-        </Reveal>
-
-        <Reveal delay={0.1}>
-          <h1
-            style={{
-              fontFamily: "'Outfit', sans-serif",
-              fontSize: "clamp(42px, 7vw, 82px)",
-              fontWeight: 800,
-              color: "#fff",
-              lineHeight: 1.02,
-              letterSpacing: "-0.05em",
-              marginBottom: 24,
-              maxWidth: 760,
-            }}
-          >
-            Tasks, Journaling,
-            <br />
-            and Insights —
-            <br />
-            <span
-              style={{
-                background: `linear-gradient(135deg, ${TEAL}, ${MINT})`,
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                textShadow: `0 0 30px ${TEAL}25`,
-              }}
-            >
-              All in one place.
-            </span>
-          </h1>
-        </Reveal>
-
-        <Reveal delay={0.2}>
-          <p
-            style={{
-              fontFamily: "'Outfit', sans-serif",
-              fontSize: "clamp(16px, 2vw, 20px)",
-              color: "#a1a1aa",
-              maxWidth: 580,
-              lineHeight: 1.8,
-              marginBottom: 34,
-            }}
-          >
-            Plan your day, reflect on your thoughts, and track your progress with a
-            single app designed to keep you organized, consistent, and aware.
-          </p>
-        </Reveal>
-
-        <Reveal delay={0.3}>
-          <div
-            style={{
-              display: "flex",
-              gap: 14,
-              flexWrap: "wrap",
-              alignItems: "center",
-              marginBottom: 28,
-            }}
-          >
-            <CTAButton
-              style={{
-                padding: "16px 34px",
-                fontSize: 15,
-                boxShadow: `0 16px 40px ${TEAL}35`,
-              }}
-            >
-              Download App
-            </CTAButton>
-
-            <CTAButton
-              primary={false}
-              style={{
-                padding: "16px 30px",
-                fontSize: 15,
-                background: "rgba(255,255,255,0.03)",
-              }}
-            >
-              Explore Features →
-            </CTAButton>
-          </div>
-        </Reveal>
-
-        <Reveal delay={0.4}>
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 22,
-              alignItems: "center",
-            }}
-          >
-            {[
-              { value: "Tasks", label: "Daily planning" },
-              { value: "Journal", label: "Thought tracking" },
-              { value: "Insights", label: "Weekly progress" },
-            ].map((item, i) => (
-              <div key={i}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div
                   style={{
-                    fontFamily: "'Outfit', sans-serif",
-                    fontSize: 18,
+                    width: 30,
+                    height: 30,
+                    borderRadius: 10,
+                    background: `${TEAL}20`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: TEAL,
                     fontWeight: 700,
-                    color: "#fff",
-                    marginBottom: 2,
+                    flexShrink: 0,
                   }}
                 >
-                  {item.value}
+                  ✓
                 </div>
-                <div
-                  style={{
-                    fontFamily: "'Outfit', sans-serif",
-                    fontSize: 12,
-                    color: "#71717a",
-                  }}
-                >
-                  {item.label}
+                <div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: "#fff",
+                      fontFamily: "'Outfit', sans-serif",
+                    }}
+                  >
+                    5 / 5 tasks completed
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 10,
+                      color: TEAL,
+                      fontFamily: "'Outfit', sans-serif",
+                    }}
+                  >
+                    100% completion today
+                  </div>
                 </div>
               </div>
-            ))}
+            </FloatingCard>
+
+            <FloatingCard
+              className="hero-floating-card"
+              style={{
+                position: "absolute",
+                bottom: 110,
+                left: -20,
+                zIndex: 4,
+                animationDelay: "1.2s",
+                minWidth: 170,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 18 }}>🔥</span>
+                <div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: "#fff",
+                      fontFamily: "'Outfit', sans-serif",
+                    }}
+                  >
+                    7 day streak
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 10,
+                      color: "#71717a",
+                      fontFamily: "'Outfit', sans-serif",
+                    }}
+                  >
+                    Consistency is building
+                  </div>
+                </div>
+              </div>
+            </FloatingCard>
+
+            <FloatingCard
+              className="hero-floating-card"
+              style={{
+                position: "absolute",
+                top: 270,
+                left: -30,
+                zIndex: 4,
+                animationDelay: "1.8s",
+                minWidth: 155,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 16 }}>😊</span>
+                <div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: "#fff",
+                      fontFamily: "'Outfit', sans-serif",
+                    }}
+                  >
+                    Mood captured
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 10,
+                      color: "#71717a",
+                      fontFamily: "'Outfit', sans-serif",
+                    }}
+                  >
+                    Feeling productive
+                  </div>
+                </div>
+              </div>
+            </FloatingCard>
           </div>
         </Reveal>
       </div>
-
-      <Reveal delay={0.35} direction="scale">
-        <div
-          style={{
-            position: "relative",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            minHeight: 650,
-            transform: `translate(${mouse.x}px, ${mouse.y}px)`,
-            transition: "transform 0.25s ease-out",
-            perspective: 1600,
-          }}
-        >
-          {/* glow layers */}
-          <div
-            style={{
-              position: "absolute",
-              width: 560,
-              height: 560,
-              borderRadius: "50%",
-              background: `radial-gradient(circle, ${TEAL}14 0%, transparent 65%)`,
-              filter: "blur(50px)",
-              animation: "heroGlow 7s ease-in-out infinite alternate",
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              width: 420,
-              height: 420,
-              borderRadius: "50%",
-              background: `radial-gradient(circle, ${AMBER}10 0%, transparent 68%)`,
-              filter: "blur(55px)",
-              top: 80,
-              right: 0,
-              animation: "heroGlow 6s ease-in-out infinite alternate-reverse",
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              width: 320,
-              height: 320,
-              borderRadius: "50%",
-              background: `radial-gradient(circle, ${BLUE}10 0%, transparent 68%)`,
-              filter: "blur(45px)",
-              bottom: 60,
-              left: 10,
-              animation: "heroGlow 5.5s ease-in-out infinite alternate",
-            }}
-          />
-
-          {/* side depth card */}
-          <div
-            style={{
-              position: "absolute",
-              width: 240,
-              height: 500,
-              borderRadius: 34,
-              background: "linear-gradient(145deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))",
-              border: "1px solid rgba(255,255,255,0.05)",
-              transform: "perspective(1200px) rotateY(28deg) translateX(80px) scale(0.92)",
-              right: 20,
-              zIndex: 1,
-              opacity: 0.7,
-            }}
-          />
-
-          <PhoneMockup
-            screen={<TasksScreen />}
-            tilt
-            style={{
-              position: "relative",
-              zIndex: 3,
-            }}
-          />
-
-          <FloatingCard
-            style={{
-              position: "absolute",
-              top: 75,
-              right: -10,
-              zIndex: 4,
-              animationDelay: "0.4s",
-              minWidth: 180,
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div
-                style={{
-                  width: 30,
-                  height: 30,
-                  borderRadius: 10,
-                  background: `${TEAL}20`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: TEAL,
-                  fontWeight: 700,
-                }}
-              >
-                ✓
-              </div>
-              <div>
-                <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: "#fff",
-                    fontFamily: "'Outfit', sans-serif",
-                  }}
-                >
-                  5 / 5 tasks completed
-                </div>
-                <div
-                  style={{
-                    fontSize: 10,
-                    color: TEAL,
-                    fontFamily: "'Outfit', sans-serif",
-                  }}
-                >
-                  100% completion today
-                </div>
-              </div>
-            </div>
-          </FloatingCard>
-
-          <FloatingCard
-            style={{
-              position: "absolute",
-              bottom: 110,
-              left: -20,
-              zIndex: 4,
-              animationDelay: "1.2s",
-              minWidth: 170,
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 18 }}>🔥</span>
-              <div>
-                <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: "#fff",
-                    fontFamily: "'Outfit', sans-serif",
-                  }}
-                >
-                  7 day streak
-                </div>
-                <div
-                  style={{
-                    fontSize: 10,
-                    color: "#71717a",
-                    fontFamily: "'Outfit', sans-serif",
-                  }}
-                >
-                  Consistency is building
-                </div>
-              </div>
-            </div>
-          </FloatingCard>
-
-          <FloatingCard
-            style={{
-              position: "absolute",
-              top: 270,
-              left: -30,
-              zIndex: 4,
-              animationDelay: "1.8s",
-              minWidth: 155,
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 16 }}>😊</span>
-              <div>
-                <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: "#fff",
-                    fontFamily: "'Outfit', sans-serif",
-                  }}
-                >
-                  Mood captured
-                </div>
-                <div
-                  style={{
-                    fontSize: 10,
-                    color: "#71717a",
-                    fontFamily: "'Outfit', sans-serif",
-                  }}
-                >
-                  Feeling productive
-                </div>
-              </div>
-            </div>
-          </FloatingCard>
-        </div>
-      </Reveal>
     </Section>
   );
 }
@@ -1470,6 +1517,7 @@ function Features() {
       </Reveal>
 
       <div
+        className="features-grid"
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
@@ -1575,12 +1623,12 @@ function Showcase() {
       </Reveal>
 
       <div
+        className="showcase-phones"
         style={{
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
           gap: "clamp(10px, 3vw, 30px)",
-          flexWrap: "wrap",
           perspective: 1200,
         }}
       >
@@ -1589,10 +1637,9 @@ function Showcase() {
             <div style={{ textAlign: "center" }}>
               <PhoneMockup
                 screen={s.screen}
+                className="showcase-phone"
                 style={{
                   transform: `rotate(${s.rotate}deg)`,
-                  width: "clamp(160px, 18vw, 220px)",
-                  height: "clamp(320px, 36vw, 440px)",
                 }}
               />
               <div
@@ -1637,8 +1684,8 @@ function WhySection() {
   return (
     <Section id="why">
       <div
-        style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 60, alignItems: "center" }}
         className="why-grid"
+        style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 60, alignItems: "center" }}
       >
         <Reveal direction="right">
           <div>
@@ -1685,11 +1732,12 @@ function WhySection() {
                     justifyContent: "center",
                     fontSize: 16,
                     color: TEAL,
+                    flexShrink: 0,
                   }}
                 >
                   {p.icon}
                 </div>
-                <div>
+                <div style={{ minWidth: 0 }}>
                   <div
                     style={{
                       fontFamily: "'Outfit', sans-serif",
@@ -1718,10 +1766,11 @@ function WhySection() {
         </Reveal>
 
         <Reveal delay={0.2} direction="left">
-          <div style={{ display: "flex", justifyContent: "center" }}>
+          <div className="why-phone-wrap" style={{ display: "flex", justifyContent: "center" }}>
             <PhoneMockup
               screen={<InsightsScreen />}
               tilt
+              className="why-phone"
               style={{ transform: "perspective(800px) rotateY(8deg)" }}
             />
           </div>
@@ -1866,7 +1915,7 @@ function Craftsmanship() {
               <div
                 style={{
                   fontFamily: "'Outfit', sans-serif",
-                  fontSize: 24,
+                  fontSize: "clamp(18px, 2.5vw, 24px)",
                   fontWeight: 700,
                   color: "#f4f4f5",
                   marginBottom: 14,
@@ -1947,6 +1996,7 @@ function Testimonials() {
       </Reveal>
 
       <div
+        className="testimonials-grid"
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
@@ -1972,11 +2022,12 @@ function Testimonials() {
                     fontWeight: 700,
                     color: [TEAL, AMBER, BLUE][i],
                     fontFamily: "'Outfit', sans-serif",
+                    flexShrink: 0,
                   }}
                 >
                   {r.avatar}
                 </div>
-                <div>
+                <div style={{ minWidth: 0 }}>
                   <div
                     style={{
                       fontFamily: "'Outfit', sans-serif",
@@ -2007,7 +2058,7 @@ function Testimonials() {
                   fontStyle: "italic",
                 }}
               >
-                "{r.text}"
+                &ldquo;{r.text}&rdquo;
               </p>
               <div style={{ marginTop: 12, color: AMBER, fontSize: 12, letterSpacing: 2 }}>
                 ★★★★★
@@ -2077,11 +2128,11 @@ function FAQ() {
                 padding: "20px 0",
               }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
                 <span
                   style={{
                     fontFamily: "'Outfit', sans-serif",
-                    fontSize: 16,
+                    fontSize: "clamp(14px, 2vw, 16px)",
                     fontWeight: 500,
                     color: open === i ? "#fff" : "#a1a1aa",
                     transition: "color 0.2s",
@@ -2095,6 +2146,7 @@ function FAQ() {
                     color: "#52525b",
                     transform: open === i ? "rotate(45deg)" : "none",
                     transition: "transform 0.3s ease",
+                    flexShrink: 0,
                   }}
                 >
                   +
@@ -2136,7 +2188,7 @@ function FinalCTA() {
         <GlassCard
           hover={false}
           style={{
-            padding: "clamp(40px, 6vw, 80px)",
+            padding: "clamp(40px, 6vw, 80px) clamp(20px, 4vw, 80px)",
             textAlign: "center",
             background:
               "linear-gradient(135deg, rgba(45,212,191,0.06) 0%, rgba(255,255,255,0.03) 50%, rgba(245,158,11,0.04) 100%)",
@@ -2173,7 +2225,7 @@ function FinalCTA() {
           <h2
             style={{
               fontFamily: "'Outfit', sans-serif",
-              fontSize: "clamp(28px, 4vw, 48px)",
+              fontSize: "clamp(24px, 4vw, 48px)",
               fontWeight: 800,
               color: "#fff",
               letterSpacing: "-0.03em",
@@ -2187,7 +2239,7 @@ function FinalCTA() {
           <p
             style={{
               fontFamily: "'Outfit', sans-serif",
-              fontSize: 16,
+              fontSize: "clamp(14px, 2vw, 16px)",
               color: "#52525b",
               maxWidth: 440,
               margin: "0 auto 32px",
@@ -2230,6 +2282,7 @@ function Footer() {
       }}
     >
       <div
+        className="footer-inner"
         style={{
           display: "flex",
           justifyContent: "space-between",
@@ -2250,6 +2303,7 @@ function Footer() {
               alignItems: "center",
               justifyContent: "center",
               fontSize: 12,
+              flexShrink: 0,
             }}
           >
             ✓
@@ -2266,7 +2320,7 @@ function Footer() {
           </span>
         </div>
 
-        <div style={{ display: "flex", gap: 24 }}>
+        <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
           {["Privacy", "Terms", "Contact", "Twitter"].map((l) => (
             <a
               key={l}
@@ -2303,8 +2357,9 @@ export default function LiquidGlassLanding() {
 
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
-        body { background: ${BG}; overflow-x: hidden; }
+        body { background: ${BG}; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
 
+        /* ═══ KEYFRAMES ═══ */
         @keyframes orbFloat {
           0% { transform: translate(0, 0) scale(1); }
           33% { transform: translate(30px, -40px) scale(1.05); }
@@ -2317,85 +2372,224 @@ export default function LiquidGlassLanding() {
           100% { transform: translateY(-10px); }
         }
 
-        @media (max-width: 768px) {
-          .nav-desktop { display: none !important; }
-          .nav-mobile-btn { display: block !important; }
-          .why-grid { grid-template-columns: 1fr !important; }
+        @keyframes cardFloat3D {
+          0% { transform: perspective(1000px) rotateX(8deg) rotateY(-8deg) translateY(0px); }
+          100% { transform: perspective(1000px) rotateX(10deg) rotateY(-10deg) translateY(-12px); }
         }
 
+        @keyframes heroDrift {
+          0% { transform: translate3d(0px, 0px, 0px); }
+          100% { transform: translate3d(0px, -14px, 0px); }
+        }
+
+        @keyframes heroGlow {
+          0% { transform: scale(1) translateY(0px); opacity: 0.75; }
+          100% { transform: scale(1.08) translateY(-12px); opacity: 1; }
+        }
+
+        @keyframes pulseDot {
+          0% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.45); opacity: 0.7; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes floatDepth {
+          0% { transform: perspective(1000px) rotateX(8deg) rotateY(-10deg) translateY(0px); }
+          100% { transform: perspective(1000px) rotateX(10deg) rotateY(-12deg) translateY(-12px); }
+        }
+
+        @keyframes navShine {
+          0% { transform: translateX(-120%); opacity: 0; }
+          40% { opacity: 1; }
+          100% { transform: translateX(120%); opacity: 0; }
+        }
+
+        /* ═══ HERO GRID — desktop default ═══ */
+        .hero-grid {
+          display: grid;
+          grid-template-columns: 1.05fr 0.95fr;
+          gap: 40px;
+          align-items: center;
+          width: 100%;
+        }
+
+        /* ═══ SHOWCASE PHONES — desktop default ═══ */
+        .showcase-phone {
+          width: clamp(160px, 18vw, 220px) !important;
+          height: clamp(320px, 36vw, 440px) !important;
+        }
+
+        /* ═══ DESKTOP (>768px) ═══ */
         @media (min-width: 769px) {
           .nav-mobile-btn { display: none !important; }
           .mobile-menu { display: none !important; }
         }
-        @keyframes cardFloat3D {
-  0% {
-    transform: perspective(1000px) rotateX(8deg) rotateY(-8deg) translateY(0px);
-  }
-  100% {
-    transform: perspective(1000px) rotateX(10deg) rotateY(-10deg) translateY(-12px);
-  }
-}
 
-@keyframes heroDrift {
-  0% {
-    transform: translate3d(0px, 0px, 0px);
-  }
-  100% {
-    transform: translate3d(0px, -14px, 0px);
-  }
-}
-  @keyframes heroGlow {
-  0% {
-    transform: scale(1) translateY(0px);
-    opacity: 0.75;
-  }
-  100% {
-    transform: scale(1.08) translateY(-12px);
-    opacity: 1;
-  }
-}
+        /* ═══ TABLET (<900px) ═══ */
+        @media (max-width: 900px) {
+          .craft-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
 
-@keyframes pulseDot {
-  0% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.45);
-    opacity: 0.7;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
+        /* ═══ MOBILE (<768px) ═══ */
+        @media (max-width: 768px) {
 
-@keyframes floatDepth {
-  0% {
-    transform: perspective(1000px) rotateX(8deg) rotateY(-10deg) translateY(0px);
-  }
-  100% {
-    transform: perspective(1000px) rotateX(10deg) rotateY(-12deg) translateY(-12px);
-  }
-}
-  @keyframes navShine {
-  0% {
-    transform: translateX(-120%);
-    opacity: 0;
-  }
-  40% {
-    opacity: 1;
-  }
-  100% {
-    transform: translateX(120%);
-    opacity: 0;
-  }
-}
-  @media (max-width: 900px) {
-  .craft-grid {
-    grid-template-columns: 1fr !important;
-  }
-}
+          /* Nav */
+          .nav-desktop { display: none !important; }
+          .nav-mobile-btn { display: flex !important; align-items: center; justify-content: center; }
+          .header-cta { display: none !important; }
+          .header-subtitle { display: none !important; }
+
+          /* Sections — reduce vertical padding */
+          .section-wrapper {
+            padding-top: 60px !important;
+            padding-bottom: 60px !important;
+            padding-left: 16px !important;
+            padding-right: 16px !important;
+          }
+
+          /* Hero */
+          .hero-section {
+            padding-top: 120px !important;
+            min-height: auto !important;
+          }
+
+          .hero-grid {
+            grid-template-columns: 1fr !important;
+            gap: 40px !important;
+          }
+
+          .hero-visual {
+            min-height: 500px !important;
+            max-width: 100% !important;
+            overflow: visible;
+          }
+
+          .hero-phone {
+            width: 240px !important;
+            height: 480px !important;
+          }
+
+          /* Hide floating cards on small screens — they cause overflow */
+          .hero-floating-card {
+            display: none !important;
+          }
+
+          /* Hide the depth card behind phone on mobile */
+          .hero-depth-card {
+            display: none !important;
+          }
+
+          /* Scale down hero glows on mobile */
+          .hero-glow {
+            transform: scale(0.6) !important;
+          }
+
+          /* Hero badge text — smaller on mobile */
+          .hero-badge-text {
+            font-size: 9px !important;
+            letter-spacing: 1px !important;
+          }
+
+          .hero-badge {
+            padding: 6px 14px !important;
+          }
+
+          /* Hero buttons full width on very small screens */
+          .hero-buttons {
+            flex-direction: column !important;
+            align-items: stretch !important;
+          }
+          .hero-buttons button {
+            width: 100% !important;
+            text-align: center !important;
+          }
+
+          /* Why grid — single column */
+          .why-grid {
+            grid-template-columns: 1fr !important;
+            gap: 40px !important;
+          }
+
+          .why-phone {
+            width: 240px !important;
+            height: 480px !important;
+          }
+
+          /* Showcase — horizontal scroll instead of wrapping badly */
+          .showcase-phones {
+            flex-wrap: nowrap !important;
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch;
+            scroll-snap-type: x mandatory;
+            padding-bottom: 20px !important;
+            justify-content: flex-start !important;
+            gap: 16px !important;
+            margin: 0 -16px !important;
+            padding-left: 16px !important;
+            padding-right: 16px !important;
+          }
+
+          .showcase-phones > div {
+            flex: 0 0 auto;
+            scroll-snap-align: center;
+          }
+
+          .showcase-phone {
+            width: 180px !important;
+            height: 360px !important;
+          }
+
+          /* Features grid — single column */
+          .features-grid {
+            grid-template-columns: 1fr !important;
+          }
+
+          /* Testimonials grid — single column */
+          .testimonials-grid {
+            grid-template-columns: 1fr !important;
+          }
+
+          /* Footer — stack on mobile */
+          .footer-inner {
+            flex-direction: column !important;
+            align-items: center !important;
+            text-align: center !important;
+            gap: 16px !important;
+          }
+
+          /* Reduce orb sizes to prevent any bleed */
+          .orb-element {
+            transform: scale(0.5) !important;
+          }
+        }
+
+        /* ═══ VERY SMALL SCREENS (<400px) ═══ */
+        @media (max-width: 400px) {
+          .hero-phone {
+            width: 220px !important;
+            height: 440px !important;
+          }
+
+          .hero-visual {
+            min-height: 420px !important;
+          }
+
+          .showcase-phone {
+            width: 150px !important;
+            height: 300px !important;
+          }
+
+          .why-phone {
+            width: 220px !important;
+            height: 440px !important;
+          }
+
+          .hero-title {
+            font-size: 32px !important;
+          }
+        }
       `}</style>
 
       <div
@@ -2404,6 +2598,7 @@ export default function LiquidGlassLanding() {
           color: "#e4e4e7",
           minHeight: "100vh",
           position: "relative",
+          overflowX: "hidden",
         }}
       >
         <Orbs />

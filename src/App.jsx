@@ -1181,7 +1181,7 @@ function Hero() {
                   boxShadow: `0 16px 40px ${TEAL}35`,
                 }}
               >
-                Download App
+                Get Beta Access
               </CTAButton>
 
               <CTAButton
@@ -2259,7 +2259,7 @@ function FinalCTA() {
               position: "relative",
             }}
           >
-            <CTAButton>Download for Android</CTAButton>
+            <CTAButton>Join the Beta</CTAButton>
             <CTAButton primary={false}>Learn More</CTAButton>
           </div>
         </GlassCard>

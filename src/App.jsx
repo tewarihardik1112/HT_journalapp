@@ -651,8 +651,8 @@ function ProfileScreen() {
           H
         </div>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>Harshit Tomar</div>
-          <div style={{ fontSize: 10, color: "#71717a", overflow: "hidden", textOverflow: "ellipsis" }}>harshittomar@gmail.abc</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>John Doe</div>
+          <div style={{ fontSize: 10, color: "#71717a", overflow: "hidden", textOverflow: "ellipsis" }}>johndoe@gmail.abc</div>
         </div>
       </div>
 
@@ -987,7 +987,7 @@ function Header() {
               boxShadow: `0 14px 30px ${TEAL}28`,
             }}
           >
-            Download App
+            Join the Beta
           </CTAButton>
 
           <button

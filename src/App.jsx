@@ -1050,7 +1050,7 @@ function Header() {
               {l}
             </a>
           ))}
-          <CTAButton style={{ marginTop: 8, width: "100%" }}>Download App</CTAButton>
+          <CTAButton style={{ marginTop: 8, width: "100%" }}>Join the Beta</CTAButton>
         </div>
       )}
     </header>

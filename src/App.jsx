@@ -2319,7 +2319,7 @@ function Footer() {
     Smart Tasks - Liquid Glass
   </span>
   <a
-    href="https://your-company-website.com"
+    href="https://codepixelworks.com/"
     target="_blank"
     rel="noopener noreferrer"
     style={{

@@ -2307,18 +2307,32 @@ function Footer() {
             }}
           >
             ✓
-          </div>
-          <span
-            style={{
-              fontFamily: "'Outfit', sans-serif",
-              fontSize: 15,
-              fontWeight: 600,
-              color: "#71717a",
-            }}
-          >
-            Smart Tasks - Liquid Glass
-          </span>
-        </div>
+          <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.2 }}>
+  <span
+    style={{
+      fontFamily: "'Outfit', sans-serif",
+      fontSize: 15,
+      fontWeight: 600,
+      color: "#71717a",
+    }}
+  >
+    Smart Tasks - Liquid Glass
+  </span>
+  <a
+    href="https://your-company-website.com"
+    target="_blank"
+    rel="noopener noreferrer"
+    style={{
+      fontFamily: "'JetBrains Mono', monospace",
+      fontSize: 11,
+      color: TEAL,
+      textDecoration: "none",
+      marginTop: 4,
+    }}
+  >
+    by Code Pixel Works
+  </a>
+</div>
 
         <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
           {["Privacy", "Terms", "Contact", "Twitter"].map((l) => (

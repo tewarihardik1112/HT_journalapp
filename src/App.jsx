@@ -2050,7 +2050,7 @@ function Showcase3DCarousel() {
     const loop = (now) => {
       const dt = now - last;
       last = now;
-      setAngle((a) => a + dt * 0.006);
+      setAngle((a) => a + dt * 0.012);
       raf = requestAnimationFrame(loop);
     };
 

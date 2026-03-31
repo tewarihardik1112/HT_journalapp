@@ -666,11 +666,11 @@ function PhoneMockup({ screen, style = {}, tilt = false, className = "" }) {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    const rotateY = ((x / rect.width) - 0.5) * 18;
-    const rotateX = ((y / rect.height) - 0.5) * -14;
+    const rotateY = ((x / rect.width) - 0.5) * 20;
+    const rotateX = ((y / rect.height) - 0.5) * -16;
 
     setTransform(
-      `perspective(1400px) rotateY(${rotateY}deg) rotateX(${rotateX}deg) scale(1.025)`
+      `perspective(1400px) rotateY(${rotateY}deg) rotateX(${rotateX}deg) scale(1.035)`
     );
   };
 
@@ -699,16 +699,14 @@ function PhoneMockup({ screen, style = {}, tilt = false, className = "" }) {
           0 0 80px ${TEAL}10,
           inset 0 1px 0 rgba(255,255,255,0.08)
         `,
-        transition: "transform 0.38s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease",
+        transition: "transform 0.16s ease, box-shadow 0.25s ease",
         transform,
         transformStyle: "preserve-3d",
         position: "relative",
-        overflow: "hidden",
-        willChange: "transform",
         ...style,
       }}
     >
-      {/* soft top shine */}
+      {/* top shine */}
       <div
         style={{
           position: "absolute",
@@ -718,50 +716,6 @@ function PhoneMockup({ screen, style = {}, tilt = false, className = "" }) {
           height: 40,
           borderRadius: 20,
           background: "linear-gradient(180deg, rgba(255,255,255,0.08), transparent)",
-          pointerEvents: "none",
-        }}
-      />
-
-      {/* camera island */}
-      <div
-        style={{
-          position: "absolute",
-          top: 16,
-          left: "50%",
-          transform: "translateX(-50%) translateZ(40px)",
-          width: 92,
-          height: 24,
-          borderRadius: 999,
-          background: "#050506",
-          border: "1px solid rgba(255,255,255,0.05)",
-          zIndex: 3,
-          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
-        }}
-      />
-
-      {/* soft side reflection */}
-      <div
-        style={{
-          position: "absolute",
-          top: 40,
-          right: 18,
-          width: 90,
-          height: 320,
-          borderRadius: 40,
-          background: "linear-gradient(180deg, rgba(255,255,255,0.05), transparent)",
-          transform: "rotate(12deg)",
-          pointerEvents: "none",
-          filter: "blur(2px)",
-        }}
-      />
-
-      {/* subtle edge highlight */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 1,
-          borderRadius: 37,
-          border: "1px solid rgba(255,255,255,0.04)",
           pointerEvents: "none",
         }}
       />

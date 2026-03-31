@@ -53,6 +53,266 @@ function useMouseParallax(factor = 0.02) {
   return offset;
 }
 
+/* ─── advanced hooks ─── */
+function usePrefersReducedMotion() {
+  const [reduced, setReduced] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReduced(mq.matches);
+    update();
+    mq.addEventListener?.("change", update);
+    return () => mq.removeEventListener?.("change", update);
+  }, []);
+
+  return reduced;
+}
+
+function useScrollProgress() {
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    let raf = 0;
+
+    const update = () => {
+      const h = document.documentElement;
+      const total = h.scrollHeight - h.clientHeight;
+      const next = total > 0 ? window.scrollY / total : 0;
+      setProgress(next);
+      raf = 0;
+    };
+
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  return progress;
+}
+
+function useMagnetic(strength = 0.22) {
+  const ref = useRef(null);
+  const [transform, setTransform] = useState("translate3d(0,0,0)");
+
+  const onMove = (e) => {
+    const el = ref.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const x = e.clientX - (rect.left + rect.width / 2);
+    const y = e.clientY - (rect.top + rect.height / 2);
+    setTransform(`translate3d(${x * strength}px, ${y * strength}px, 0)`);
+  };
+
+  const onLeave = () => setTransform("translate3d(0,0,0)");
+
+  return { ref, transform, onMove, onLeave };
+}
+
+/* ─── top progress ─── */
+function ScrollProgressBar() {
+  const progress = useScrollProgress();
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: 3,
+        zIndex: 200,
+        pointerEvents: "none",
+        background: "rgba(255,255,255,0.03)",
+      }}
+    >
+      <div
+        style={{
+          width: `${progress * 100}%`,
+          height: "100%",
+          background: `linear-gradient(90deg, ${TEAL}, ${MINT}, ${BLUE}, ${AMBER})`,
+          boxShadow: `0 0 20px ${TEAL}80, 0 0 40px ${BLUE}40`,
+          transition: "width 0.08s linear",
+        }}
+      />
+    </div>
+  );
+}
+
+/* ─── spotlight ─── */
+function Spotlight() {
+  const reduced = usePrefersReducedMotion();
+  const [pos, setPos] = useState({ x: -500, y: -500 });
+
+  useEffect(() => {
+    if (reduced) return;
+    let raf = 0;
+
+    const move = (e) => {
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        setPos({ x: e.clientX, y: e.clientY });
+      });
+    };
+
+    window.addEventListener("mousemove", move, { passive: true });
+    return () => {
+      window.removeEventListener("mousemove", move);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [reduced]);
+
+  if (reduced) return null;
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        pointerEvents: "none",
+        zIndex: 1,
+        background: `radial-gradient(320px circle at ${pos.x}px ${pos.y}px, rgba(45,212,191,0.09), rgba(59,130,246,0.05) 30%, transparent 65%)`,
+        transition: "background 0.08s linear",
+      }}
+    />
+  );
+}
+
+/* ─── starfield / particles ─── */
+function Starfield() {
+  const canvasRef = useRef(null);
+  const reduced = usePrefersReducedMotion();
+
+  useEffect(() => {
+    if (reduced) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+
+    let w = 0;
+    let h = 0;
+    let raf = 0;
+    let t = 0;
+    const DPR = Math.min(window.devicePixelRatio || 1, 1.8);
+    const mouse = { x: 0, y: 0 };
+
+    const particles = [];
+    const count = 85;
+
+    const resize = () => {
+      w = window.innerWidth;
+      h = window.innerHeight;
+      canvas.width = w * DPR;
+      canvas.height = h * DPR;
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+      particles.length = 0;
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x: Math.random() * w,
+          y: Math.random() * h,
+          vx: (Math.random() - 0.5) * 0.22,
+          vy: (Math.random() - 0.5) * 0.22,
+          r: Math.random() * 1.8 + 0.5,
+          hue: [170, 210, 38, 45][Math.floor(Math.random() * 4)],
+        });
+      }
+    };
+
+    const onMove = (e) => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+    };
+
+    const draw = () => {
+      t += 0.008;
+      ctx.clearRect(0, 0, w, h);
+
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+
+        const dx = mouse.x - p.x;
+        const dy = mouse.y - p.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const force = Math.max(0, 120 - dist) / 120;
+
+        p.x += p.vx + (dx / dist) * force * 0.08 + Math.sin(t + i) * 0.02;
+        p.y += p.vy + (dy / dist) * force * 0.08 + Math.cos(t + i) * 0.02;
+
+        if (p.x < -20) p.x = w + 20;
+        if (p.x > w + 20) p.x = -20;
+        if (p.y < -20) p.y = h + 20;
+        if (p.y > h + 20) p.y = -20;
+
+        ctx.beginPath();
+        ctx.fillStyle = `hsla(${p.hue}, 90%, 70%, 0.35)`;
+        ctx.shadowBlur = 18;
+        ctx.shadowColor = `hsla(${p.hue}, 90%, 65%, 0.45)`;
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.shadowBlur = 0;
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const a = particles[i];
+          const b = particles[j];
+          const dx = a.x - b.x;
+          const dy = a.y - b.y;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d < 120) {
+            ctx.beginPath();
+            ctx.strokeStyle = `rgba(255,255,255,${(1 - d / 120) * 0.08})`;
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            ctx.stroke();
+          }
+        }
+      }
+
+      raf = requestAnimationFrame(draw);
+    };
+
+    resize();
+    draw();
+
+    window.addEventListener("resize", resize);
+    window.addEventListener("mousemove", onMove, { passive: true });
+
+    return () => {
+      window.removeEventListener("resize", resize);
+      window.removeEventListener("mousemove", onMove);
+      cancelAnimationFrame(raf);
+    };
+  }, [reduced]);
+
+  if (reduced) return null;
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 0,
+        pointerEvents: "none",
+        opacity: 0.55,
+      }}
+    />
+  );
+}
+
 /* ─── animated background orbs ─── */
 function Orbs() {
   return (
@@ -125,10 +385,54 @@ function GridBg() {
   );
 }
 
+/* ─── ambient beam separators ─── */
+function AmbientBeam({ top = "auto", bottom = "auto", rotate = -8, color = TEAL, opacity = 0.08 }) {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: "-10%",
+        right: "-10%",
+        top,
+        bottom,
+        height: 140,
+        transform: `rotate(${rotate}deg)`,
+        background: `linear-gradient(90deg, transparent, ${color}, transparent)`,
+        filter: "blur(70px)",
+        opacity,
+        pointerEvents: "none",
+        zIndex: 0,
+      }}
+    />
+  );
+}
+
+/* ─── top lens flare ─── */
+function TopLensFlare() {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: -120,
+        left: "50%",
+        transform: "translateX(-50%)",
+        width: 900,
+        height: 300,
+        pointerEvents: "none",
+        zIndex: 0,
+        background:
+          "radial-gradient(ellipse at center, rgba(255,255,255,0.08) 0%, rgba(45,212,191,0.06) 18%, rgba(59,130,246,0.04) 30%, transparent 70%)",
+        filter: "blur(40px)",
+      }}
+    />
+  );
+}
+
 /* ─── glass card ─── */
 function GlassCard({ children, style = {}, hover = true, className = "" }) {
   const [hovered, setHovered] = useState(false);
-  const [transform, setTransform] = useState("perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(0)");
+  const [transform, setTransform] = useState("perspective(1200px) rotateX(0deg) rotateY(0deg) translateY(0)");
+  const [glare, setGlare] = useState({ x: 50, y: 50, o: 0 });
 
   const handleMove = (e) => {
     if (!hover) return;
@@ -137,17 +441,21 @@ function GlassCard({ children, style = {}, hover = true, className = "" }) {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    const rotateY = ((x / rect.width) - 0.5) * 12;
-    const rotateX = ((y / rect.height) - 0.5) * -12;
+    const rotateY = ((x / rect.width) - 0.5) * 14;
+    const rotateX = ((y / rect.height) - 0.5) * -14;
 
-    setTransform(
-      `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-6px)`
-    );
+    setTransform(`perspective(1200px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-8px) scale(1.01)`);
+    setGlare({
+      x: (x / rect.width) * 100,
+      y: (y / rect.height) * 100,
+      o: 1,
+    });
   };
 
   const reset = () => {
     setHovered(false);
-    setTransform("perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(0)");
+    setTransform("perspective(1200px) rotateX(0deg) rotateY(0deg) translateY(0)");
+    setGlare((g) => ({ ...g, o: 0 }));
   };
 
   return (
@@ -158,22 +466,45 @@ function GlassCard({ children, style = {}, hover = true, className = "" }) {
       className={className}
       style={{
         background: hovered
-          ? "linear-gradient(135deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.03) 100%)"
-          : "linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%)",
-        backdropFilter: "blur(20px) saturate(1.3)",
-        WebkitBackdropFilter: "blur(20px) saturate(1.3)",
-        border: `1px solid ${hovered ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.06)"}`,
-        borderRadius: 20,
-        transition: "transform 0.18s ease, box-shadow 0.25s ease, background 0.25s ease, border 0.25s ease",
+          ? "linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.03) 100%)"
+          : "linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.012) 100%)",
+        backdropFilter: "blur(22px) saturate(1.3)",
+        WebkitBackdropFilter: "blur(22px) saturate(1.3)",
+        border: `1px solid ${hovered ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.06)"}`,
+        borderRadius: 22,
+        transition:
+          "transform 0.18s ease, box-shadow 0.25s ease, background 0.25s ease, border 0.25s ease",
         transform,
         transformStyle: "preserve-3d",
         boxShadow: hovered
-          ? `0 30px 80px rgba(0,0,0,0.45), 0 0 50px ${TEAL}12`
+          ? `0 30px 80px rgba(0,0,0,0.48), 0 0 60px ${TEAL}12, inset 0 1px 0 rgba(255,255,255,0.10)`
           : "0 8px 32px rgba(0,0,0,0.3)",
+        position: "relative",
+        overflow: "hidden",
         ...style,
       }}
     >
-      <div style={{ transform: "translateZ(24px)" }}>{children}</div>
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: `radial-gradient(circle at ${glare.x}% ${glare.y}%, rgba(255,255,255,0.16), transparent 38%)`,
+          opacity: glare.o,
+          transition: "opacity 0.2s ease",
+          pointerEvents: "none",
+        }}
+      />
+
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "linear-gradient(180deg, rgba(255,255,255,0.06), transparent 35%)",
+          pointerEvents: "none",
+        }}
+      />
+
+      <div style={{ transform: "translateZ(26px)", position: "relative" }}>{children}</div>
     </div>
   );
 }
@@ -220,6 +551,17 @@ function Section({ children, id, style = {}, className = "" }) {
         ...style,
       }}
     >
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 24,
+          right: 24,
+          height: 1,
+          background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)",
+          pointerEvents: "none",
+        }}
+      />
       {children}
     </section>
   );
@@ -246,14 +588,21 @@ function SectionLabel({ children }) {
 }
 
 /* ─── CTA button ─── */
-function CTAButton({ children, primary = true, style = {}, className = "" }) {
+function CTAButton({ children, primary = true, style = {}, className = "", ...props }) {
   const [hovered, setHovered] = useState(false);
+  const { ref, transform, onMove, onLeave } = useMagnetic(primary ? 0.18 : 0.12);
 
   return (
     <button
+      ref={ref}
       onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseMove={onMove}
+      onMouseLeave={(e) => {
+        setHovered(false);
+        onLeave(e);
+      }}
       className={className}
+      {...props}
       style={{
         fontFamily: "'Outfit', sans-serif",
         fontSize: 15,
@@ -270,14 +619,34 @@ function CTAButton({ children, primary = true, style = {}, className = "" }) {
           : "transparent",
         color: primary ? "#09090b" : "#e4e4e7",
         cursor: "pointer",
-        transition: "all 0.3s ease",
-        transform: hovered ? "translateY(-2px)" : "none",
-        boxShadow: primary && hovered ? `0 8px 30px ${TEAL}40` : "none",
+        transition: "transform 0.2s ease, box-shadow 0.3s ease, background 0.3s ease",
+        transform: `${transform} ${hovered ? "scale(1.02)" : "scale(1)"}`,
+        boxShadow: primary
+          ? hovered
+            ? `0 16px 40px ${TEAL}40, 0 0 30px ${MINT}22`
+            : `0 10px 24px ${TEAL}22`
+          : hovered
+          ? "0 8px 24px rgba(255,255,255,0.08)"
+          : "none",
         letterSpacing: 0.3,
+        position: "relative",
+        overflow: "hidden",
         ...style,
       }}
     >
-      {children}
+      <span style={{ position: "relative", zIndex: 2 }}>{children}</span>
+
+      {hovered && (
+        <span
+          style={{
+            position: "absolute",
+            inset: 0,
+            background:
+              "linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.25) 40%, transparent 70%)",
+            animation: "btnShine 0.9s ease forwards",
+          }}
+        />
+      )}
     </button>
   );
 }
@@ -286,9 +655,10 @@ function CTAButton({ children, primary = true, style = {}, className = "" }) {
 function PhoneMockup({ screen, style = {}, tilt = false, className = "" }) {
   const [transform, setTransform] = useState(
     tilt
-      ? "perspective(1400px) rotateY(-10deg) rotateX(6deg) scale(1)"
-      : "perspective(1400px) rotateY(0deg) rotateX(0deg) scale(1)"
+      ? "perspective(1600px) rotateY(-10deg) rotateX(6deg) scale(1)"
+      : "perspective(1600px) rotateY(0deg) rotateX(0deg) scale(1)"
   );
+  const [shine, setShine] = useState({ x: 50, y: 0, o: 0.4 });
 
   const handleMove = (e) => {
     if (!tilt) return;
@@ -297,20 +667,24 @@ function PhoneMockup({ screen, style = {}, tilt = false, className = "" }) {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    const rotateY = ((x / rect.width) - 0.5) * 20;
-    const rotateX = ((y / rect.height) - 0.5) * -16;
+    const rotateY = ((x / rect.width) - 0.5) * 22;
+    const rotateX = ((y / rect.height) - 0.5) * -18;
 
-    setTransform(
-      `perspective(1400px) rotateY(${rotateY}deg) rotateX(${rotateX}deg) scale(1.035)`
-    );
+    setTransform(`perspective(1600px) rotateY(${rotateY}deg) rotateX(${rotateX}deg) scale(1.04)`);
+    setShine({
+      x: (x / rect.width) * 100,
+      y: (y / rect.height) * 100,
+      o: 0.9,
+    });
   };
 
   const reset = () => {
     setTransform(
       tilt
-        ? "perspective(1400px) rotateY(-10deg) rotateX(6deg) scale(1)"
-        : "perspective(1400px) rotateY(0deg) rotateX(0deg) scale(1)"
+        ? "perspective(1600px) rotateY(-10deg) rotateX(6deg) scale(1)"
+        : "perspective(1600px) rotateY(0deg) rotateX(0deg) scale(1)"
     );
+    setShine({ x: 50, y: 0, o: 0.45 });
   };
 
   return (
@@ -323,7 +697,7 @@ function PhoneMockup({ screen, style = {}, tilt = false, className = "" }) {
         height: 560,
         borderRadius: 38,
         background: "linear-gradient(145deg, #1a1a1e 0%, #0b0b0d 100%)",
-        border: "1.5px solid rgba(255,255,255,0.08)",
+        border: "1.5px solid rgba(255,255,255,0.09)",
         padding: 8,
         boxShadow: `
           0 60px 120px rgba(0,0,0,0.72),
@@ -334,10 +708,32 @@ function PhoneMockup({ screen, style = {}, tilt = false, className = "" }) {
         transform,
         transformStyle: "preserve-3d",
         position: "relative",
+        overflow: "hidden",
         ...style,
       }}
     >
-      {/* top shine */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          borderRadius: 38,
+          background: `radial-gradient(circle at ${shine.x}% ${shine.y}%, rgba(255,255,255,0.18), transparent 32%)`,
+          opacity: shine.o,
+          pointerEvents: "none",
+          transition: "opacity 0.2s ease",
+        }}
+      />
+
+      <div
+        style={{
+          position: "absolute",
+          inset: 1,
+          borderRadius: 37,
+          border: "1px solid rgba(255,255,255,0.05)",
+          pointerEvents: "none",
+        }}
+      />
+
       <div
         style={{
           position: "absolute",
@@ -348,6 +744,22 @@ function PhoneMockup({ screen, style = {}, tilt = false, className = "" }) {
           borderRadius: 20,
           background: "linear-gradient(180deg, rgba(255,255,255,0.08), transparent)",
           pointerEvents: "none",
+        }}
+      />
+
+      <div
+        style={{
+          position: "absolute",
+          top: 16,
+          left: "50%",
+          transform: "translateX(-50%) translateZ(50px)",
+          width: 92,
+          height: 24,
+          borderRadius: 999,
+          background: "#050506",
+          border: "1px solid rgba(255,255,255,0.05)",
+          zIndex: 3,
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
         }}
       />
 
@@ -652,7 +1064,9 @@ function ProfileScreen() {
         </div>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>John Doe</div>
-          <div style={{ fontSize: 10, color: "#71717a", overflow: "hidden", textOverflow: "ellipsis" }}>johndoe@gmail.abc</div>
+          <div style={{ fontSize: 10, color: "#71717a", overflow: "hidden", textOverflow: "ellipsis" }}>
+            johndoe@gmail.abc
+          </div>
         </div>
       </div>
 
@@ -762,6 +1176,38 @@ function FloatingCard({ children, style = {}, className = "" }) {
   );
 }
 
+/* ─── hero rings ─── */
+function HeroRings() {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        pointerEvents: "none",
+        zIndex: 1,
+      }}
+    >
+      {[0, 1, 2].map((i) => (
+        <div
+          key={i}
+          style={{
+            position: "absolute",
+            width: 320 + i * 90,
+            height: 320 + i * 90,
+            borderRadius: "50%",
+            border: `1px solid rgba(255,255,255,${0.08 - i * 0.015})`,
+            boxShadow: i === 0 ? `0 0 40px ${TEAL}12 inset` : "none",
+            transform: `rotateX(74deg) rotateZ(${i * 18}deg)`,
+            animation: `ringSpin${i} ${18 + i * 6}s linear infinite`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
 /* ─── nav ─── */
 function Header() {
@@ -775,7 +1221,6 @@ function Header() {
     return () => window.removeEventListener("scroll", handler);
   }, []);
 
-  // Close mobile menu on resize to desktop
   useEffect(() => {
     const handler = () => {
       if (window.innerWidth > 768) setMobileOpen(false);
@@ -821,7 +1266,6 @@ function Header() {
           gap: 12,
         }}
       >
-        {/* logo */}
         <div
           style={{
             display: "flex",
@@ -862,7 +1306,10 @@ function Header() {
             ✓
           </div>
 
-          <div className="header-logo-text" style={{ display: "flex", flexDirection: "column", lineHeight: 1, minWidth: 0 }}>
+          <div
+            className="header-logo-text"
+            style={{ display: "flex", flexDirection: "column", lineHeight: 1, minWidth: 0 }}
+          >
             <span
               style={{
                 fontFamily: "'Outfit', sans-serif",
@@ -893,7 +1340,6 @@ function Header() {
           </div>
         </div>
 
-        {/* desktop nav */}
         <nav
           className="nav-desktop"
           style={{
@@ -969,7 +1415,6 @@ function Header() {
           })}
         </nav>
 
-        {/* right actions */}
         <div
           style={{
             display: "flex",
@@ -1012,7 +1457,6 @@ function Header() {
         </div>
       </div>
 
-      {/* mobile menu */}
       {mobileOpen && (
         <div
           className="mobile-menu"
@@ -1074,7 +1518,6 @@ function Hero() {
       }}
     >
       <div className="hero-grid">
-        {/* Text content */}
         <div style={{ position: "relative", zIndex: 2 }}>
           <Reveal delay={0}>
             <div
@@ -1239,7 +1682,6 @@ function Hero() {
           </Reveal>
         </div>
 
-        {/* Phone visual */}
         <Reveal delay={0.35} direction="scale">
           <div
             className="hero-visual"
@@ -1248,13 +1690,29 @@ function Hero() {
               display: "flex",
               justifyContent: "center",
               alignItems: "center",
-              minHeight: 650,
+              minHeight: 700,
               transform: `translate(${mouse.x}px, ${mouse.y}px)`,
               transition: "transform 0.25s ease-out",
-              perspective: 1600,
+              perspective: 1800,
+              transformStyle: "preserve-3d",
             }}
           >
-            {/* glow layers */}
+            <HeroRings />
+
+            <div
+              style={{
+                position: "absolute",
+                width: 520,
+                height: 520,
+                borderRadius: "50%",
+                border: "1px solid rgba(255,255,255,0.05)",
+                transform: "rotateX(75deg) translateZ(-40px)",
+                boxShadow: `0 0 120px ${TEAL}10`,
+                zIndex: 0,
+                pointerEvents: "none",
+              }}
+            />
+
             <div
               className="hero-glow"
               style={{
@@ -1296,7 +1754,6 @@ function Hero() {
               }}
             />
 
-            {/* side depth card — hidden on mobile */}
             <div
               className="hero-depth-card"
               style={{
@@ -1573,15 +2030,107 @@ function Features() {
   );
 }
 
-/* ─── app showcase ─── */
-function Showcase() {
-  const screens = [
-    { label: "Tasks", screen: <TasksScreen />, rotate: -8 },
-    { label: "Journal", screen: <JournalScreen />, rotate: -3 },
-    { label: "Insights", screen: <InsightsScreen />, rotate: 3 },
-    { label: "Profile", screen: <ProfileScreen />, rotate: 8 },
+/* ─── showcase 3d carousel ─── */
+function Showcase3DCarousel() {
+  const items = [
+    { label: "Tasks", screen: <TasksScreen /> },
+    { label: "Journal", screen: <JournalScreen /> },
+    { label: "Insights", screen: <InsightsScreen /> },
+    { label: "Profile", screen: <ProfileScreen /> },
   ];
 
+  const [angle, setAngle] = useState(0);
+  const reduced = usePrefersReducedMotion();
+
+  useEffect(() => {
+    if (reduced) return;
+    let raf = 0;
+    let last = performance.now();
+
+    const loop = (now) => {
+      const dt = now - last;
+      last = now;
+      setAngle((a) => a + dt * 0.006);
+      raf = requestAnimationFrame(loop);
+    };
+
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [reduced]);
+
+  const onWheel = (e) => {
+    setAngle((a) => a + e.deltaY * 0.08);
+  };
+
+  return (
+    <div
+      onWheel={onWheel}
+      style={{
+        position: "relative",
+        height: 700,
+        perspective: 1800,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        overflow: "visible",
+      }}
+    >
+      <div
+        style={{
+          position: "relative",
+          width: 600,
+          height: 600,
+          transformStyle: "preserve-3d",
+          transform: `rotateY(${angle}deg)`,
+          transition: reduced ? "none" : "transform 0.1s linear",
+        }}
+      >
+        {items.map((item, i) => {
+          const step = 360 / items.length;
+          const a = i * step;
+          const radius = 300;
+          return (
+            <div
+              key={item.label}
+              style={{
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transformStyle: "preserve-3d",
+                transform: `translate(-50%, -50%) rotateY(${a}deg) translateZ(${radius}px)`,
+              }}
+            >
+              <div style={{ textAlign: "center" }}>
+                <PhoneMockup
+                  screen={item.screen}
+                  tilt
+                  style={{
+                    width: 220,
+                    height: 440,
+                  }}
+                />
+                <div
+                  style={{
+                    marginTop: 14,
+                    fontFamily: "'Outfit', sans-serif",
+                    fontSize: 13,
+                    color: "#71717a",
+                    fontWeight: 600,
+                  }}
+                >
+                  {item.label}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ─── app showcase ─── */
+function Showcase() {
   return (
     <Section id="showcase">
       <Reveal>
@@ -1622,40 +2171,58 @@ function Showcase() {
         </div>
       </Reveal>
 
+      <div className="showcase-desktop-3d">
+        <Reveal delay={0.1} direction="scale">
+          <Showcase3DCarousel />
+        </Reveal>
+      </div>
+
       <div
-        className="showcase-phones"
+        className="showcase-mobile-row"
         style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          gap: "clamp(10px, 3vw, 30px)",
-          perspective: 1200,
+          display: "none",
         }}
       >
-        {screens.map((s, i) => (
-          <Reveal key={i} delay={i * 0.12} direction="scale">
-            <div style={{ textAlign: "center" }}>
-              <PhoneMockup
-                screen={s.screen}
-                className="showcase-phone"
-                style={{
-                  transform: `rotate(${s.rotate}deg)`,
-                }}
-              />
-              <div
-                style={{
-                  fontFamily: "'Outfit', sans-serif",
-                  fontSize: 13,
-                  color: "#52525b",
-                  marginTop: 16,
-                  fontWeight: 500,
-                }}
-              >
-                {s.label}
+        <div
+          className="showcase-phones"
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            gap: "clamp(10px, 3vw, 30px)",
+            perspective: 1200,
+          }}
+        >
+          {[
+            { label: "Tasks", screen: <TasksScreen />, rotate: -8 },
+            { label: "Journal", screen: <JournalScreen />, rotate: -3 },
+            { label: "Insights", screen: <InsightsScreen />, rotate: 3 },
+            { label: "Profile", screen: <ProfileScreen />, rotate: 8 },
+          ].map((s, i) => (
+            <Reveal key={i} delay={i * 0.12} direction="scale">
+              <div style={{ textAlign: "center" }}>
+                <PhoneMockup
+                  screen={s.screen}
+                  className="showcase-phone"
+                  style={{
+                    transform: `rotate(${s.rotate}deg)`,
+                  }}
+                />
+                <div
+                  style={{
+                    fontFamily: "'Outfit', sans-serif",
+                    fontSize: 13,
+                    color: "#52525b",
+                    marginTop: 16,
+                    fontWeight: 500,
+                  }}
+                >
+                  {s.label}
+                </div>
               </div>
-            </div>
-          </Reveal>
-        ))}
+            </Reveal>
+          ))}
+        </div>
       </div>
     </Section>
   );
@@ -1826,14 +2393,7 @@ function Craftsmanship() {
               lineHeight: 1.05,
             }}
           >
-            Not just designed.{" "}
-            <span
-              style={{
-                color: "#5b5b67",
-              }}
-            >
-              Engineered.
-            </span>
+            Not just designed. <span style={{ color: "#5b5b67" }}>Engineered.</span>
           </h2>
 
           <p
@@ -1878,7 +2438,6 @@ function Craftsmanship() {
                   "linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015))",
               }}
             >
-              {/* subtle glow */}
               <div
                 style={{
                   position: "absolute",
@@ -2321,7 +2880,7 @@ function Footer() {
               Smart Tasks - Liquid Glass
             </span>
             <a
-              href="https://codepixelworks.com/"
+              href="https://codepixelworks.com"
               target="_blank"
               rel="noopener noreferrer"
               style={{
@@ -2382,27 +2941,11 @@ export default function LiquidGlassLanding() {
         html { scroll-behavior: smooth; }
         body { background: ${BG}; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
 
-        /* ═══ KEYFRAMES ═══ */
         @keyframes orbFloat {
           0% { transform: translate(0, 0) scale(1); }
           33% { transform: translate(30px, -40px) scale(1.05); }
           66% { transform: translate(-20px, 20px) scale(0.97); }
           100% { transform: translate(15px, -15px) scale(1.02); }
-        }
-
-        @keyframes cardFloat {
-          0% { transform: translateY(0px); }
-          100% { transform: translateY(-10px); }
-        }
-
-        @keyframes cardFloat3D {
-          0% { transform: perspective(1000px) rotateX(8deg) rotateY(-8deg) translateY(0px); }
-          100% { transform: perspective(1000px) rotateX(10deg) rotateY(-10deg) translateY(-12px); }
-        }
-
-        @keyframes heroDrift {
-          0% { transform: translate3d(0px, 0px, 0px); }
-          100% { transform: translate3d(0px, -14px, 0px); }
         }
 
         @keyframes heroGlow {
@@ -2427,7 +2970,27 @@ export default function LiquidGlassLanding() {
           100% { transform: translateX(120%); opacity: 0; }
         }
 
-        /* ═══ HERO GRID — desktop default ═══ */
+        @keyframes btnShine {
+          0% { transform: translateX(-120%); opacity: 0; }
+          30% { opacity: 1; }
+          100% { transform: translateX(120%); opacity: 0; }
+        }
+
+        @keyframes ringSpin0 {
+          from { transform: rotateX(74deg) rotateZ(0deg); }
+          to { transform: rotateX(74deg) rotateZ(360deg); }
+        }
+
+        @keyframes ringSpin1 {
+          from { transform: rotateX(74deg) rotateZ(0deg); }
+          to { transform: rotateX(74deg) rotateZ(-360deg); }
+        }
+
+        @keyframes ringSpin2 {
+          from { transform: rotateX(74deg) rotateZ(0deg); }
+          to { transform: rotateX(74deg) rotateZ(360deg); }
+        }
+
         .hero-grid {
           display: grid;
           grid-template-columns: 1.05fr 0.95fr;
@@ -2436,35 +2999,45 @@ export default function LiquidGlassLanding() {
           width: 100%;
         }
 
-        /* ═══ SHOWCASE PHONES — desktop default ═══ */
         .showcase-phone {
           width: clamp(160px, 18vw, 220px) !important;
           height: clamp(320px, 36vw, 440px) !important;
         }
 
-        /* ═══ DESKTOP (>768px) ═══ */
+        .showcase-desktop-3d {
+          display: block;
+        }
+
+        .showcase-mobile-row {
+          display: none;
+        }
+
+        .phone-mockup,
+        .floating-card,
+        .hero-phone,
+        .showcase-phone,
+        .why-phone {
+          will-change: transform;
+          backface-visibility: hidden;
+        }
+
         @media (min-width: 769px) {
           .nav-mobile-btn { display: none !important; }
           .mobile-menu { display: none !important; }
         }
 
-        /* ═══ TABLET (<900px) ═══ */
         @media (max-width: 900px) {
           .craft-grid {
             grid-template-columns: 1fr !important;
           }
         }
 
-        /* ═══ MOBILE (<768px) ═══ */
         @media (max-width: 768px) {
-
-          /* Nav */
           .nav-desktop { display: none !important; }
           .nav-mobile-btn { display: flex !important; align-items: center; justify-content: center; }
           .header-cta { display: none !important; }
           .header-subtitle { display: none !important; }
 
-          /* Sections — reduce vertical padding */
           .section-wrapper {
             padding-top: 60px !important;
             padding-bottom: 60px !important;
@@ -2472,7 +3045,6 @@ export default function LiquidGlassLanding() {
             padding-right: 16px !important;
           }
 
-          /* Hero */
           .hero-section {
             padding-top: 120px !important;
             min-height: auto !important;
@@ -2494,22 +3066,18 @@ export default function LiquidGlassLanding() {
             height: 480px !important;
           }
 
-          /* Hide floating cards on small screens — they cause overflow */
           .hero-floating-card {
             display: none !important;
           }
 
-          /* Hide the depth card behind phone on mobile */
           .hero-depth-card {
             display: none !important;
           }
 
-          /* Scale down hero glows on mobile */
           .hero-glow {
             transform: scale(0.6) !important;
           }
 
-          /* Hero badge text — smaller on mobile */
           .hero-badge-text {
             font-size: 9px !important;
             letter-spacing: 1px !important;
@@ -2519,17 +3087,16 @@ export default function LiquidGlassLanding() {
             padding: 6px 14px !important;
           }
 
-          /* Hero buttons full width on very small screens */
           .hero-buttons {
             flex-direction: column !important;
             align-items: stretch !important;
           }
+
           .hero-buttons button {
             width: 100% !important;
             text-align: center !important;
           }
 
-          /* Why grid — single column */
           .why-grid {
             grid-template-columns: 1fr !important;
             gap: 40px !important;
@@ -2540,7 +3107,14 @@ export default function LiquidGlassLanding() {
             height: 480px !important;
           }
 
-          /* Showcase — horizontal scroll instead of wrapping badly */
+          .showcase-desktop-3d {
+            display: none !important;
+          }
+
+          .showcase-mobile-row {
+            display: block !important;
+          }
+
           .showcase-phones {
             flex-wrap: nowrap !important;
             overflow-x: auto !important;
@@ -2564,17 +3138,14 @@ export default function LiquidGlassLanding() {
             height: 360px !important;
           }
 
-          /* Features grid — single column */
           .features-grid {
             grid-template-columns: 1fr !important;
           }
 
-          /* Testimonials grid — single column */
           .testimonials-grid {
             grid-template-columns: 1fr !important;
           }
 
-          /* Footer — stack on mobile */
           .footer-inner {
             flex-direction: column !important;
             align-items: center !important;
@@ -2582,13 +3153,11 @@ export default function LiquidGlassLanding() {
             gap: 16px !important;
           }
 
-          /* Reduce orb sizes to prevent any bleed */
           .orb-element {
             transform: scale(0.5) !important;
           }
         }
 
-        /* ═══ VERY SMALL SCREENS (<400px) ═══ */
         @media (max-width: 400px) {
           .hero-phone {
             width: 220px !important;
@@ -2613,6 +3182,17 @@ export default function LiquidGlassLanding() {
             font-size: 32px !important;
           }
         }
+
+        @media (prefers-reduced-motion: reduce) {
+          *,
+          *::before,
+          *::after {
+            animation-duration: 0.001ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.001ms !important;
+            scroll-behavior: auto !important;
+          }
+        }
       `}</style>
 
       <div
@@ -2626,7 +3206,15 @@ export default function LiquidGlassLanding() {
       >
         <Orbs />
         <GridBg />
+        <Starfield />
+        <TopLensFlare />
+        <Spotlight />
         <NoiseOverlay />
+        <AmbientBeam top={420} rotate={-10} color={TEAL} opacity={0.06} />
+        <AmbientBeam top={1350} rotate={8} color={BLUE} opacity={0.05} />
+        <AmbientBeam top={2300} rotate={-6} color={AMBER} opacity={0.05} />
+        <AmbientBeam top={3400} rotate={7} color={MINT} opacity={0.05} />
+        <ScrollProgressBar />
         <Header />
         <Hero />
         <Features />

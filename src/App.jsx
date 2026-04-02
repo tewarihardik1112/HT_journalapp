@@ -1172,11 +1172,28 @@ function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [hoveredLink, setHoveredLink] = useState(null);
 
-  useEffect(() => {
-    const handler = () => setScrolled(window.scrollY > 30);
-    window.addEventListener("scroll", handler);
-    return () => window.removeEventListener("scroll", handler);
-  }, []);
+ const [hidden, setHidden] = useState(false);
+
+useEffect(() => {
+  let scrollTimeout;
+
+  const handler = () => {
+    setScrolled(window.scrollY > 30);
+    setHidden(true);
+
+    clearTimeout(scrollTimeout);
+    scrollTimeout = setTimeout(() => {
+      setHidden(false);
+    }, 150); // header reappears after scrolling stops
+  };
+
+  window.addEventListener("scroll", handler, { passive: true });
+
+  return () => {
+    window.removeEventListener("scroll", handler);
+    clearTimeout(scrollTimeout);
+  };
+}, []);
 
   useEffect(() => {
     const handler = () => {
@@ -1191,14 +1208,17 @@ function Header() {
   return (
     <header
       style={{
-        position: "fixed",
-        top: 18,
-        left: 0,
-        right: 0,
-        zIndex: 100,
-        padding: "0 16px",
-      }}
-    >
+    position: "fixed",
+    top: hidden ? -120 : 18,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    padding: "0 16px",
+    opacity: hidden ? 0 : 1,
+    transition: "top 0.28s ease, opacity 0.28s ease",
+  }}
+>
+ 
       <div
         style={{
           maxWidth: 1280,
@@ -2304,7 +2324,6 @@ function WhySection() {
   );
 }
 
-/* ─── craftsmanship ─── */
 function Craftsmanship() {
   const items = [
     {
@@ -2381,7 +2400,14 @@ function Craftsmanship() {
         }}
       >
         {items.map((item, i) => (
-          <Reveal key={i} delay={i * 0.08}>
+          <Reveal
+            key={i}
+            delay={i * 0.12}
+            direction={i % 2 === 0 ? "left" : "right"} // 👈 animation direction
+            style={{
+              willChange: "transform, opacity, filter",
+            }}
+          >
             <GlassCard
               style={{
                 padding: "34px 30px",
@@ -2587,9 +2613,9 @@ function Testimonials() {
   );
 }
 
-/* ─── FAQ ─── */
 function FAQ() {
   const [open, setOpen] = useState(null);
+  const refs = useRef([]);
 
   const items = [
     {
@@ -2615,7 +2641,7 @@ function FAQ() {
   ];
 
   return (
-    <Section id="faq">
+    <Section id="faq" style={{ scrollMarginTop: 120 }}>
       <Reveal>
         <div style={{ textAlign: "center", marginBottom: 60 }}>
           <SectionLabel>FAQ</SectionLabel>
@@ -2633,64 +2659,110 @@ function FAQ() {
         </div>
       </Reveal>
 
-      <div style={{ maxWidth: 680, margin: "0 auto" }}>
-        {items.map((item, i) => (
-          <Reveal key={i} delay={i * 0.06}>
-            <div
-              onClick={() => setOpen(open === i ? null : i)}
-              style={{
-                borderBottom: "1px solid rgba(255,255,255,0.06)",
-                cursor: "pointer",
-                padding: "20px 0",
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
-                <span
-                  style={{
-                    fontFamily: "'Outfit', sans-serif",
-                    fontSize: "clamp(14px, 2vw, 16px)",
-                    fontWeight: 500,
-                    color: open === i ? "#fff" : "#a1a1aa",
-                    transition: "color 0.2s",
-                  }}
-                >
-                  {item.q}
-                </span>
-                <span
-                  style={{
-                    fontSize: 18,
-                    color: "#52525b",
-                    transform: open === i ? "rotate(45deg)" : "none",
-                    transition: "transform 0.3s ease",
-                    flexShrink: 0,
-                  }}
-                >
-                  +
-                </span>
-              </div>
+      <div style={{ maxWidth: 720, margin: "0 auto" }}>
+        {items.map((item, i) => {
+          const isOpen = open === i;
 
+          return (
+            <Reveal key={i} delay={i * 0.06}>
               <div
+                role="button"
+                tabIndex={0}
+                aria-expanded={isOpen}
+                onClick={() => setOpen(isOpen ? null : i)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    setOpen(isOpen ? null : i);
+                  }
+                }}
                 style={{
-                  maxHeight: open === i ? 200 : 0,
-                  overflow: "hidden",
-                  transition: "max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
+                  borderBottom: "1px solid rgba(255,255,255,0.06)",
+                  cursor: "pointer",
+                  padding: "20px 0",
+                  transition: "all 0.25s ease",
+                  background: isOpen
+                    ? "rgba(255,255,255,0.03)"
+                    : "transparent",
+                }}
+                onMouseEnter={(e) => {
+                  if (!isOpen)
+                    e.currentTarget.style.background =
+                      "rgba(255,255,255,0.025)";
+                }}
+                onMouseLeave={(e) => {
+                  if (!isOpen)
+                    e.currentTarget.style.background = "transparent";
                 }}
               >
-                <p
+                {/* Question Row */}
+                <div
                   style={{
-                    fontFamily: "'Outfit', sans-serif",
-                    fontSize: 14,
-                    color: "#52525b",
-                    lineHeight: 1.7,
-                    paddingTop: 12,
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 16,
                   }}
                 >
-                  {item.a}
-                </p>
+                  <span
+                    style={{
+                      fontFamily: "'Outfit', sans-serif",
+                      fontSize: "clamp(14px, 2vw, 16px)",
+                      fontWeight: 500,
+                      color: isOpen ? "#fff" : "#a1a1aa",
+                      transition: "color 0.2s",
+                    }}
+                  >
+                    {item.q}
+                  </span>
+
+                  {/* Animated Icon */}
+                  <span
+                    style={{
+                      fontSize: 18,
+                      color: isOpen ? "#2dd4bf" : "#52525b",
+                      transform: isOpen
+                        ? "rotate(45deg) scale(1.2)"
+                        : "rotate(0deg)",
+                      transition: "all 0.3s ease",
+                      flexShrink: 0,
+                    }}
+                  >
+                    +
+                  </span>
+                </div>
+
+                {/* Answer */}
+                <div
+                  ref={(el) => (refs.current[i] = el)}
+                  style={{
+                    maxHeight: isOpen
+                      ? refs.current[i]?.scrollHeight
+                      : 0,
+                    overflow: "hidden",
+                    opacity: isOpen ? 1 : 0,
+                    transform: isOpen
+                      ? "translateY(0)"
+                      : "translateY(-6px)",
+                    transition:
+                      "all 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
+                  }}
+                >
+                  <p
+                    style={{
+                      fontFamily: "'Outfit', sans-serif",
+                      fontSize: 14,
+                      color: "#52525b",
+                      lineHeight: 1.7,
+                      paddingTop: 12,
+                    }}
+                  >
+                    {item.a}
+                  </p>
+                </div>
               </div>
-            </div>
-          </Reveal>
-        ))}
+            </Reveal>
+          );
+        })}
       </div>
     </Section>
   );

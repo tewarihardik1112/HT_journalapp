@@ -2435,7 +2435,7 @@ function Features() {
       </Reveal>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
+   <div className="features-row-top" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
     {features.slice(0, 3).map((f, i) => (
       <Reveal key={i} delay={i * 0.1}>
         <GlassCard style={{ padding: 32, height: "100%" }}>
@@ -2446,7 +2446,7 @@ function Features() {
       </Reveal>
     ))}
   </div>
-  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20, maxWidth: "66.66%", margin: "0 auto", width: "100%" }}>
+  <div className="features-row-bottom" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20, maxWidth: "66.66%", margin: "0 auto", width: "100%" }}>
     {features.slice(3).map((f, i) => (
       <Reveal key={i + 3} delay={(i + 3) * 0.1}>
         <GlassCard style={{ padding: 32, height: "100%" }}>
@@ -3007,9 +3007,7 @@ function Showcase() {
 
       <div
         className="showcase-mobile-row"
-        style={{
-          display: "none",
-        }}
+        
       >
         <div
           className="showcase-phones"
@@ -4073,11 +4071,16 @@ export default function LiquidGlassLanding() {
     display: none !important;
   }
 
-  /* ── FEATURES ── */
-  .features-grid {
-    grid-template-columns: 1fr !important;
-    gap: 14px !important;
-  }
+ /* ── FEATURES ── */
+.features-row-top {
+  grid-template-columns: 1fr !important;
+  gap: 14px !important;
+}
+.features-row-bottom {
+  grid-template-columns: 1fr !important;
+  max-width: 100% !important;
+  gap: 14px !important;
+}
 
   /* ── SHOWCASE ── */
   .showcase-desktop-3d {

@@ -1,4 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { Sphere } from "@react-three/drei";
+import { Float } from "@react-three/drei";
+import * as THREE from "three";
 
 /* ─── palette & constants ─── */
 const TEAL = "#2dd4bf";
@@ -117,7 +121,63 @@ function useMagnetic(strength = 0.22) {
 
   return { ref, transform, onMove, onLeave };
 }
+function useSmoothScroll() {
+  useEffect(() => {
+    let lenis;
+    let rafId;
 
+    const init = async () => {
+      const Lenis = (await import("lenis")).default;
+
+      lenis = new Lenis({
+        duration: 1.15,
+        smoothWheel: true,
+        smoothTouch: false,
+        touchMultiplier: 1.2,
+      });
+
+      const raf = (time) => {
+        lenis.raf(time);
+        rafId = requestAnimationFrame(raf);
+      };
+
+      rafId = requestAnimationFrame(raf);
+    };
+
+    init();
+
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      if (lenis) lenis.destroy();
+    };
+  }, []);
+}
+function useScrollY() {
+  const [scrollY, setScrollY] = useState(0);
+
+  useEffect(() => {
+    let raf = 0;
+
+    const update = () => {
+      setScrollY(window.scrollY);
+      raf = 0;
+    };
+
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    update();
+
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  return scrollY;
+}
 /* ─── top progress ─── */
 function ScrollProgressBar() {
   const progress = useScrollProgress();
@@ -315,6 +375,7 @@ function Starfield() {
 
 /* ─── animated background orbs ─── */
 function Orbs() {
+  const scrollY = useScrollY();
   return (
     <div
       style={{
@@ -345,6 +406,7 @@ function Orbs() {
             filter: "blur(80px)",
             animation: `orbFloat ${o.dur} ease-in-out infinite alternate`,
             animationDelay: o.delay,
+            transform: `translateY(${scrollY * (0.03 + i * 0.01)}px)`,
           }}
         />
       ))}
@@ -512,6 +574,7 @@ function GlassCard({ children, style = {}, hover = true, className = "" }) {
 /* ─── reveal wrapper ─── */
 function Reveal({ children, delay = 0, direction = "up", style = {} }) {
   const [ref, visible] = useInView(0.1);
+  const scrollY = useScrollY();
 
   const transforms = {
     up: "translateY(40px)",
@@ -536,8 +599,118 @@ function Reveal({ children, delay = 0, direction = "up", style = {} }) {
   );
 }
 
+function SectionParticles({ color = TEAL, count = 500, opacity = 0.22, size = 0.018 }) {
+  const pointsRef = useRef();
+
+  const particles = useMemo(() => {
+    const positions = new Float32Array(count * 3);
+
+    for (let i = 0; i < count; i++) {
+      positions[i * 3 + 0] = (Math.random() - 0.5) * 10;
+      positions[i * 3 + 1] = (Math.random() - 0.5) * 6;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * 4;
+    }
+
+    return positions;
+  }, [count]);
+
+  useFrame((state) => {
+    if (!pointsRef.current) return;
+    pointsRef.current.rotation.y = state.clock.elapsedTime * 0.03;
+    pointsRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.12) * 0.04;
+  });
+
+  return (
+    <points ref={pointsRef}>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          count={particles.length / 3}
+          array={particles}
+          itemSize={3}
+        />
+      </bufferGeometry>
+      <pointsMaterial
+        size={size}
+        color={color}
+        transparent
+        opacity={opacity}
+        depthWrite={false}
+      />
+    </points>
+  );
+}
+
+function SectionThreeBG({
+  children,
+  color = TEAL,
+  count = 500,
+  opacity = 0.22,
+  size = 0.018,
+  style = {},
+}) {
+  return (
+    <div style={{ position: "relative", ...style }}>
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 0,
+          pointerEvents: "none",
+          opacity: 0.9,
+        }}
+      >
+        <Canvas camera={{ position: [0, 0, 5] }}>
+          <ambientLight intensity={0.5} />
+          <SectionParticles color={color} count={count} opacity={opacity} size={size} />
+        </Canvas>
+      </div>
+
+      <div style={{ position: "relative", zIndex: 1 }}>{children}</div>
+    </div>
+  );
+}
+function WireSphere() {
+  const meshRef = useRef();
+
+  useFrame((state) => {
+    if (!meshRef.current) return;
+    meshRef.current.rotation.y = state.clock.elapsedTime * 0.25;
+    meshRef.current.rotation.x = state.clock.elapsedTime * 0.08;
+  });
+
+  return (
+    <mesh ref={meshRef}>
+      <sphereGeometry args={[1.4, 32, 32]} />
+      <meshBasicMaterial color={TEAL} wireframe transparent opacity={0.18} />
+    </mesh>
+  );
+}
+
+function WireSphereBackground({ color = TEAL }) {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        zIndex: 0,
+        pointerEvents: "none",
+      }}
+    >
+      <Canvas camera={{ position: [0, 0, 5] }}>
+        <ambientLight intensity={0.5} />
+        <mesh rotation={[0.8, 0.2, 0]}>
+          <sphereGeometry args={[1.6, 32, 32]} />
+          <meshBasicMaterial color={color} wireframe transparent opacity={0.16} />
+        </mesh>
+      </Canvas>
+    </div>
+  );
+}
+
 /* ─── section wrapper ─── */
 function Section({ children, id, style = {}, className = "" }) {
+  const scrollY = useScrollY();
   return (
     <section
       id={id}
@@ -548,6 +721,8 @@ function Section({ children, id, style = {}, className = "" }) {
         maxWidth: 1200,
         margin: "0 auto",
         padding: "100px 24px",
+        overflow: "visible",
+        transform: `translateY(${scrollY * 0.0015}px)`,
         ...style,
       }}
     >
@@ -584,6 +759,65 @@ function SectionLabel({ children }) {
     >
       {children}
     </span>
+  );
+}
+
+function ParticleBurst({ children, style = {} }) {
+  const containerRef = useRef(null);
+  const [particles, setParticles] = useState([]);
+
+  const burst = (e) => {
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const count = 20;
+    const newParticles = Array.from({ length: count }, (_, i) => {
+      const angle = (i / count) * 360 + Math.random() * 20;
+      const speed = 40 + Math.random() * 80;
+      const rad = (angle * Math.PI) / 180;
+      const size = 3 + Math.random() * 5;
+      const color = [TEAL, MINT, BLUE, AMBER, "#fff"][Math.floor(Math.random() * 5)];
+      const id = Math.random().toString(36).slice(2);
+
+      return { id, x, y, dx: Math.cos(rad) * speed, dy: Math.sin(rad) * speed, size, color };
+    });
+
+    setParticles((p) => [...p, ...newParticles]);
+    setTimeout(() => {
+      setParticles((p) => p.filter((pt) => !newParticles.find((n) => n.id === pt.id)));
+    }, 800);
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      onClick={burst}
+      style={{ position: "relative", display: "inline-block", ...style }}
+    >
+      {children}
+
+      {particles.map((p) => (
+        <span
+          key={p.id}
+          style={{
+            position: "absolute",
+            left: p.x,
+            top: p.y,
+            width: p.size,
+            height: p.size,
+            borderRadius: "50%",
+            background: p.color,
+            pointerEvents: "none",
+            zIndex: 9999,
+            boxShadow: `0 0 6px ${p.color}`,
+            animation: `particleFly 0.8s cubic-bezier(0.25, 1, 0.5, 1) forwards`,
+            "--dx": `${p.dx}px`,
+            "--dy": `${p.dy}px`,
+          }}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -652,7 +886,7 @@ function CTAButton({ children, primary = true, style = {}, className = "", ...pr
 }
 
 /* ─── phone mockup ─── */
-function PhoneMockup({ screen, style = {}, tilt = false, className = "" }) {
+function PhoneMockup({ screen, style = {}, tilt = false, className = "", onMouseEnter, onMouseLeave }) {
   const [transform, setTransform] = useState(
     tilt
       ? "perspective(1400px) rotateY(-10deg) rotateX(6deg) scale(1)"
@@ -684,9 +918,13 @@ function PhoneMockup({ screen, style = {}, tilt = false, className = "" }) {
 
   return (
     <div
-      onMouseMove={handleMove}
-      onMouseLeave={reset}
-      className={`phone-mockup ${className}`}
+  onMouseMove={handleMove}
+  onMouseEnter={onMouseEnter}
+  onMouseLeave={(e) => {
+    reset();
+    if (onMouseLeave) onMouseLeave(e);
+  }}
+  className={`phone-mockup ${className}`}
       style={{
         width: 280,
         height: 560,
@@ -695,10 +933,11 @@ function PhoneMockup({ screen, style = {}, tilt = false, className = "" }) {
         border: "1.5px solid rgba(255,255,255,0.08)",
         padding: 8,
         boxShadow: `
-          0 60px 120px rgba(0,0,0,0.72),
-          0 0 80px ${TEAL}10,
-          inset 0 1px 0 rgba(255,255,255,0.08)
-        `,
+  0 60px 120px rgba(0,0,0,0.72),
+  0 0 90px ${TEAL}12,
+  0 0 30px ${BLUE}08,
+  inset 0 1px 0 rgba(255,255,255,0.08)
+`,
         transition: "transform 0.16s ease, box-shadow 0.25s ease",
         transform,
         transformStyle: "preserve-3d",
@@ -1017,7 +1256,7 @@ function ProfileScreen() {
             flexShrink: 0,
           }}
         >
-          H
+          J
         </div>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>John Doe</div>
@@ -1105,6 +1344,136 @@ function ProfileScreen() {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+function ProjectScreen() {
+  const [activeStatus, setActiveStatus] = useState("Archived");
+  const statuses = ["Active", "On Hold", "Done", "Archived"];
+  const colors = [BLUE, "#a855f7", "#f97316", "#22c55e", "#ef4444", "#ec4899", TEAL, AMBER];
+  const [selectedColor, setSelectedColor] = useState(7);
+
+  return (
+    <div style={{ padding: "14px 16px", width: "100%", fontFamily: "'Outfit', sans-serif", overflowY: "auto", height: "100%" }}>
+      {/* Create Project Form */}
+      <div style={{
+        background: "rgba(255,255,255,0.04)",
+        border: "1px solid rgba(255,255,255,0.08)",
+        borderRadius: 14,
+        padding: "12px 12px 10px",
+        marginBottom: 10,
+      }}>
+        {/* Project name input */}
+        <div style={{
+          background: "rgba(255,255,255,0.05)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          borderRadius: 20,
+          padding: "7px 14px",
+          color: "#52525b",
+          fontSize: 11,
+          marginBottom: 6,
+        }}>Project name</div>
+
+        {/* Description */}
+        <div style={{ fontSize: 10, color: "#52525b", textAlign: "center", marginBottom: 8 }}>Description (optional)</div>
+
+        {/* Color Picker */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <span style={{ fontSize: 10, color: "#71717a", minWidth: 30 }}>Color</span>
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+            {colors.map((c, i) => (
+              <div key={i} onClick={() => setSelectedColor(i)} style={{
+                width: 22, height: 22, borderRadius: "50%", background: c, cursor: "pointer",
+                border: selectedColor === i ? `2.5px solid #fff` : "2.5px solid transparent",
+                boxShadow: selectedColor === i ? `0 0 8px ${c}80` : "none",
+                flexShrink: 0,
+                transition: "all 0.2s",
+              }} />
+            ))}
+          </div>
+        </div>
+
+        {/* Status */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
+          <span style={{ fontSize: 10, color: "#71717a", minWidth: 30, paddingTop: 6 }}>Status</span>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5, flex: 1 }}>
+            {statuses.map((s) => (
+              <div key={s} onClick={() => setActiveStatus(s)} style={{
+                padding: "6px 8px",
+                borderRadius: 20,
+                fontSize: 11,
+                fontWeight: activeStatus === s ? 700 : 400,
+                textAlign: "center",
+                background: activeStatus === s ? `${TEAL}20` : "rgba(255,255,255,0.04)",
+                color: activeStatus === s ? TEAL : "#71717a",
+                border: activeStatus === s ? `1px solid ${TEAL}50` : "1px solid rgba(255,255,255,0.07)",
+                cursor: "pointer",
+                transition: "all 0.2s",
+              }}>{s}</div>
+            ))}
+          </div>
+        </div>
+
+        {/* Due Date */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 8,
+          padding: "7px 0", borderTop: "1px solid rgba(255,255,255,0.05)", marginBottom: 0,
+        }}>
+          <span style={{ fontSize: 14 }}>📅</span>
+          <span style={{ fontSize: 11, color: "#71717a", flex: 1 }}>Due date</span>
+          <span style={{ fontSize: 10, color: "#52525b" }}>mm/dd/yyyy</span>
+        </div>
+        <div style={{
+          display: "flex", alignItems: "center", gap: 8,
+          padding: "7px 0", borderTop: "1px solid rgba(255,255,255,0.05)", marginBottom: 10,
+        }}>
+          <span style={{ fontSize: 14 }}>🔔</span>
+          <span style={{ fontSize: 11, color: "#71717a" }}>Reminder</span>
+        </div>
+
+        {/* Buttons */}
+        <div style={{ display: "flex", gap: 8 }}>
+          <div style={{
+            flex: 1, padding: "9px", borderRadius: 12, textAlign: "center",
+            fontSize: 12, fontWeight: 600, color: "#71717a",
+            background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", cursor: "pointer",
+          }}>Cancel</div>
+          <div style={{
+            flex: 1.6, padding: "9px", borderRadius: 12, textAlign: "center",
+            fontSize: 12, fontWeight: 700, color: "#09090b",
+            background: AMBER, cursor: "pointer",
+            boxShadow: `0 6px 20px ${AMBER}40`,
+          }}>Create Project</div>
+        </div>
+      </div>
+
+      {/* Existing Project Card */}
+      <div style={{
+        background: "rgba(255,255,255,0.04)",
+        border: "1px solid rgba(255,255,255,0.07)",
+        borderRadius: 14,
+        padding: "14px 14px",
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+      }}>
+        <div style={{
+          width: 11, height: 11, borderRadius: "50%",
+          background: "#a855f7", flexShrink: 0,
+        }} />
+       <div style={{ flex: 1, minWidth: 0 }}>
+  <div style={{ fontSize: 12, fontWeight: 700, color: "#e4e4e7", whiteSpace: "nowrap", textOverflow: "ellipsis", marginBottom: 3 }}>College Enquiry Chatbot</div>
+  <div style={{ fontSize: 9, color: AMBER, marginBottom: 2 }}>Due soon · Apr 9</div>
+  <div style={{ fontSize: 9, color: "#f6f6fb" }}>0 tasks · 0 features</div>
+   <div style={{ fontSize: 9, color: "#f6f6fb" }}>· 1 member</div>
+</div>
+        <div style={{
+          fontSize: 8, fontWeight: 700, letterSpacing: 1,
+          padding: "4px 8px", borderRadius: 6,
+          background: `${TEAL}18`, color: TEAL,
+          border: `1px solid ${TEAL}30`, whiteSpace: "nowrap",
+        }}>ACTIVE</div>
+      </div>
     </div>
   );
 }
@@ -1202,6 +1571,15 @@ useEffect(() => {
     window.addEventListener("resize", handler);
     return () => window.removeEventListener("resize", handler);
   }, []);
+
+  const handleNavClick = (e, id) => {
+  e.preventDefault();
+  const el = document.querySelector(id);
+  if (el) {
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  setMobileOpen(false);
+};
 
   const links = ["Features", "Showcase", "Why", "FAQ"];
 
@@ -1334,10 +1712,11 @@ useEffect(() => {
 
             return (
               <a
-                key={l}
-                href={`#${l.toLowerCase()}`}
-                onMouseEnter={() => setHoveredLink(i)}
-                onMouseLeave={() => setHoveredLink(null)}
+  key={l}
+  href={`#${l.toLowerCase()}`}
+  onClick={(e) => handleNavClick(e, `#${l.toLowerCase()}`)}
+  onMouseEnter={() => setHoveredLink(i)}
+  onMouseLeave={() => setHoveredLink(null)}
                 style={{
                   position: "relative",
                   padding: "12px 18px",
@@ -1400,6 +1779,7 @@ useEffect(() => {
             flex: "0 0 auto",
           }}
         >
+          <ParticleBurst>
           <CTAButton
             className="header-cta"
             style={{
@@ -1411,6 +1791,7 @@ useEffect(() => {
           >
             Join the Beta
           </CTAButton>
+          </ParticleBurst>
 
           <button
             className="nav-mobile-btn"
@@ -1454,9 +1835,9 @@ useEffect(() => {
         >
           {links.map((l) => (
             <a
-              key={l}
-              href={`#${l.toLowerCase()}`}
-              onClick={() => setMobileOpen(false)}
+  key={l}
+  href={`#${l.toLowerCase()}`}
+  onClick={(e) => handleNavClick(e, `#${l.toLowerCase()}`)}
               style={{
                 fontFamily: "'Outfit', sans-serif",
                 fontSize: 15,
@@ -1478,9 +1859,97 @@ useEffect(() => {
   );
 }
 
+function HeroParticles() {
+  const pointsRef = useRef();
+
+  const particles = useMemo(() => {
+    const count = 1200;
+    const positions = new Float32Array(count * 3);
+    const colors = new Float32Array(count * 3);
+
+    const color1 = new THREE.Color("#00f5ff"); // teal
+    const color2 = new THREE.Color("#ffffff"); // white
+
+    for (let i = 0; i < count; i++) {
+      // Position
+      positions[i * 3 + 0] = (Math.random() - 0.5) * 10;
+      positions[i * 3 + 1] = (Math.random() - 0.5) * 8;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * 6;
+
+      // Color mix
+      const mixed = color1.clone().lerp(color2, Math.random());
+
+      colors[i * 3 + 0] = mixed.r;
+      colors[i * 3 + 1] = mixed.g;
+      colors[i * 3 + 2] = mixed.b;
+    }
+
+    return { positions, colors };
+  }, []);
+
+  useFrame((state) => {
+    if (!pointsRef.current) return;
+
+    pointsRef.current.rotation.y = state.clock.elapsedTime * 0.01;
+    pointsRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.08) * 0.05;
+  });
+
+  return (
+    <points ref={pointsRef}>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          count={particles.positions.length / 3}
+          array={particles.positions}
+          itemSize={3}
+        />
+        <bufferAttribute
+          attach="attributes-color"
+          count={particles.colors.length / 3}
+          array={particles.colors}
+          itemSize={3}
+        />
+      </bufferGeometry>
+
+      <pointsMaterial
+        size={0.03}
+        vertexColors
+        transparent
+        opacity={0.5}
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </points>
+  );
+}
+
+function HeroThreeBackground() {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        zIndex: 0,
+        pointerEvents: "none",
+        opacity: 0.6,
+      }}
+    >
+      <Canvas camera={{ position: [0, 0, 5] }}>
+  <ambientLight intensity={0.6} />
+  <directionalLight position={[2, 2, 2]} />
+
+  <HeroParticles />   
+
+</Canvas>
+    </div>
+  );
+}
+
 /* ─── hero ─── */
 function Hero() {
   const mouse = useMouseParallax(0.018);
+  const scrollY = useScrollY();
+  const [phoneHovered, setPhoneHovered] = useState(false);
 
   return (
     <Section
@@ -1594,6 +2063,7 @@ function Hero() {
                 marginBottom: 28,
               }}
             >
+              <ParticleBurst>
               <CTAButton
                 style={{
                   padding: "16px 34px",
@@ -1603,7 +2073,9 @@ function Hero() {
               >
                 Get Beta Access
               </CTAButton>
+              </ParticleBurst>
 
+              <ParticleBurst>
               <CTAButton
                 primary={false}
                 style={{
@@ -1614,6 +2086,7 @@ function Hero() {
               >
                 Explore Features →
               </CTAButton>
+              </ParticleBurst>
             </div>
           </Reveal>
 
@@ -1668,12 +2141,14 @@ function Hero() {
               justifyContent: "center",
               alignItems: "center",
               minHeight: 700,
-              transform: `translate(${mouse.x}px, ${mouse.y}px)`,
+              overflow: "visible",
+              transform: `translate(${mouse.x}px, ${mouse.y}px) translateY(${scrollY * 0.08}px)`,
               transition: "transform 0.25s ease-out",
               perspective: 1800,
               transformStyle: "preserve-3d",
             }}
           >
+            <HeroThreeBackground />
             <HeroRings />
 
             <div
@@ -1760,13 +2235,14 @@ function Hero() {
             <FloatingCard
               className="hero-floating-card"
               style={{
-                position: "absolute",
-                top: 75,
-                right: -10,
-                zIndex: 4,
-                animationDelay: "0.4s",
-                minWidth: 180,
-              }}
+  position: "absolute",
+  top: 75,
+  right: -90,
+  zIndex: 4,
+  animationDelay: "0.4s",
+  minWidth: 180,
+  transform: `translateY(${scrollY * 0.05}px) translateZ(50px)`,
+}}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div
@@ -1812,13 +2288,14 @@ function Hero() {
             <FloatingCard
               className="hero-floating-card"
               style={{
-                position: "absolute",
-                bottom: 110,
-                left: -20,
-                zIndex: 4,
-                animationDelay: "1.2s",
-                minWidth: 170,
-              }}
+  position: "absolute",
+  bottom: 110,
+  left: -75,
+  zIndex: 4,
+  animationDelay: "1.2s",
+  minWidth: 170,
+  transform: `translateY(${-scrollY * 0.04}px)`,
+}}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontSize: 18 }}>🔥</span>
@@ -1849,13 +2326,14 @@ function Hero() {
             <FloatingCard
               className="hero-floating-card"
               style={{
-                position: "absolute",
-                top: 270,
-                left: -30,
-                zIndex: 4,
-                animationDelay: "1.8s",
-                minWidth: 155,
-              }}
+  position: "absolute",
+  top: 270,
+  left: -55,
+  zIndex: 4,
+  animationDelay: "1.8s",
+  minWidth: 155,
+  transform: `translateY(${scrollY * 0.03}px)`,
+}}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 16 }}>😊</span>
@@ -1911,6 +2389,12 @@ function Features() {
       color: BLUE,
     },
     {
+  icon: "◈",
+  title: "Projects",
+  desc: "Organize tasks under projects. Set statuses, assign members, and track progress across Active, On Hold, Done, and Archived states.",
+  color: MINT,
+},
+    {
       icon: "↻",
       title: "Routines",
       desc: "Design daily routines that stick. Build habits through consistency tracking and gentle reminders.",
@@ -1950,159 +2434,526 @@ function Features() {
         </div>
       </Reveal>
 
-      <div
-        className="features-grid"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-          gap: 20,
-        }}
-      >
-        {features.map((f, i) => (
-          <Reveal key={i} delay={i * 0.1}>
-            <GlassCard style={{ padding: 32, height: "100%" }}>
-              <div
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 14,
-                  background: `${f.color}12`,
-                  border: `1px solid ${f.color}25`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 20,
-                  color: f.color,
-                  marginBottom: 20,
-                }}
-              >
-                {f.icon}
-              </div>
-              <h3
-                style={{
-                  fontFamily: "'Outfit', sans-serif",
-                  fontSize: 20,
-                  fontWeight: 700,
-                  color: "#fff",
-                  marginBottom: 10,
-                }}
-              >
-                {f.title}
-              </h3>
-              <p
-                style={{
-                  fontFamily: "'Outfit', sans-serif",
-                  fontSize: 14,
-                  color: "#71717a",
-                  lineHeight: 1.7,
-                }}
-              >
-                {f.desc}
-              </p>
-            </GlassCard>
-          </Reveal>
-        ))}
-      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
+    {features.slice(0, 3).map((f, i) => (
+      <Reveal key={i} delay={i * 0.1}>
+        <GlassCard style={{ padding: 32, height: "100%" }}>
+          <div style={{ width: 48, height: 48, borderRadius: 14, background: `${f.color}12`, border: `1px solid ${f.color}25`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, color: f.color, marginBottom: 20 }}>{f.icon}</div>
+          <h3 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 20, fontWeight: 700, color: "#fff", marginBottom: 10 }}>{f.title}</h3>
+          <p style={{ fontFamily: "'Outfit', sans-serif", fontSize: 14, color: "#71717a", lineHeight: 1.7 }}>{f.desc}</p>
+        </GlassCard>
+      </Reveal>
+    ))}
+  </div>
+  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20, maxWidth: "66.66%", margin: "0 auto", width: "100%" }}>
+    {features.slice(3).map((f, i) => (
+      <Reveal key={i + 3} delay={(i + 3) * 0.1}>
+        <GlassCard style={{ padding: 32, height: "100%" }}>
+          <div style={{ width: 48, height: 48, borderRadius: 14, background: `${f.color}12`, border: `1px solid ${f.color}25`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, color: f.color, marginBottom: 20 }}>{f.icon}</div>
+          <h3 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 20, fontWeight: 700, color: "#fff", marginBottom: 10 }}>{f.title}</h3>
+          <p style={{ fontFamily: "'Outfit', sans-serif", fontSize: 14, color: "#71717a", lineHeight: 1.7 }}>{f.desc}</p>
+        </GlassCard>
+      </Reveal>
+    ))}
+  </div>
+</div>
     </Section>
   );
 }
 
-/* ─── showcase 3d carousel ─── */
-function Showcase3DCarousel() {
+function ShowcaseStackedCards() {
   const items = [
-    { label: "Tasks", screen: <TasksScreen /> },
-    { label: "Journal", screen: <JournalScreen /> },
-    { label: "Insights", screen: <InsightsScreen /> },
-    { label: "Profile", screen: <ProfileScreen /> },
+    {
+      label: "Tasks",
+      screen: <TasksScreen />,
+      color: TEAL,
+      accentColor: "#6ee7b7",
+      title: "Plan your day",
+      desc: "Organize tasks, set priorities, and build momentum with a clean and focused daily planner.",
+      stat: { value: "100%", label: "completion rate" },
+      icon: "☑",
+    },
+    {
+      label: "Journal",
+      screen: <JournalScreen />,
+      color: AMBER,
+      accentColor: "#fcd34d",
+      title: "Reflect & grow",
+      desc: "Capture moods, thoughts, and daily reflections to build a personal archive of your growth.",
+      stat: { value: "365", label: "days of entries" },
+      icon: "✎",
+    },
+    {
+      label: "Insights",
+      screen: <InsightsScreen />,
+      color: BLUE,
+      accentColor: "#93c5fd",
+      title: "Track your progress",
+      desc: "Visualize weekly completion rates, streaks, and mood patterns at a glance.",
+      stat: { value: "7×", label: "more consistent" },
+      icon: "◎",
+    },
+    {
+      label: "Profile",
+      screen: <ProfileScreen />,
+      color: MINT,
+      accentColor: "#a7f3d0",
+      title: "Your space",
+      desc: "Manage preferences, view stats, and keep your productivity system personalized.",
+      stat: { value: "∞", label: "customization" },
+      icon: "◈",
+    },
+    {
+  label: "Projects",
+  screen: <ProjectScreen />,
+  color: BLUE,
+  accentColor: "#93c5fd",
+  title: "Manage projects",
+  desc: "Group tasks under projects, assign members, track statuses — Active, On Hold, Done, or Archived — all in one focused view.",
+  stat: { value: "∞", label: "projects & members" },
+  icon: "◈",
+},
   ];
 
-  const [angle, setAngle] = useState(0);
-  const reduced = usePrefersReducedMotion();
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [prevIndex, setPrevIndex] = useState(null);
+  const [direction, setDirection] = useState(1);
+  const cardRefs = useRef([]);
+  const containerRef = useRef(null);
+  const [lineProgress, setLineProgress] = useState(0);
+  const activeItem = items[activeIndex];
 
   useEffect(() => {
-    if (reduced) return;
-    let raf = 0;
-    let last = performance.now();
+    const observers = cardRefs.current.map((ref, i) => {
+      if (!ref) return null;
+      const obs = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            setDirection(i > activeIndex ? 1 : -1);
+            setPrevIndex(activeIndex);
+            setActiveIndex(i);
+          }
+        },
+        { threshold: 0.55, rootMargin: "-8% 0px -8% 0px" }
+      );
+      obs.observe(ref);
+      return obs;
+    });
+    return () => observers.forEach((obs) => obs?.disconnect());
+  }, [activeIndex]);
 
-    const loop = (now) => {
-      const dt = now - last;
-      last = now;
-      setAngle((a) => a + dt * 0.015);
-      raf = requestAnimationFrame(loop);
+  // Scroll progress within current card for the line fill
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const update = () => {
+      const ref = cardRefs.current[activeIndex];
+      if (!ref) return;
+      const rect = ref.getBoundingClientRect();
+      const vh = window.innerHeight;
+      const progress = Math.min(1, Math.max(0, 1 - rect.bottom / vh + 0.3));
+      setLineProgress(progress);
     };
 
-    raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
-  }, [reduced]);
-
-  const onWheel = (e) => {
-    setAngle((a) => a + e.deltaY * 0.08);
-  };
+    window.addEventListener("scroll", update, { passive: true });
+    update();
+    return () => window.removeEventListener("scroll", update);
+  }, [activeIndex]);
 
   return (
-    <div
-      onWheel={onWheel}
-      style={{
-        position: "relative",
-        height: 700,
-        perspective: 1800,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        overflow: "visible",
-      }}
-    >
+    <>
+      <style>{`
+        @keyframes phoneEntrance {
+          0% { opacity: 0; transform: translateY(32px) scale(0.94) rotateX(6deg); }
+          100% { opacity: 1; transform: translateY(0px) scale(1) rotateX(0deg); }
+        }
+        @keyframes phoneExit {
+          0% { opacity: 1; transform: translateY(0px) scale(1); }
+          100% { opacity: 0; transform: translateY(-24px) scale(0.96); }
+        }
+        @keyframes statPop {
+          0% { opacity: 0; transform: scale(0.85) translateY(8px); }
+          60% { transform: scale(1.06) translateY(-2px); }
+          100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        @keyframes glowPulse {
+          0%, 100% { opacity: 0.55; transform: scale(1); }
+          50% { opacity: 0.85; transform: scale(1.08); }
+        }
+        @keyframes lineGrow {
+          from { transform: scaleY(0); }
+          to { transform: scaleY(1); }
+        }
+        @keyframes badgeSlideIn {
+          0% { opacity: 0; transform: translateX(-10px); }
+          100% { opacity: 1; transform: translateX(0); }
+        }
+        .showcase-text-card-active {
+          animation: none;
+        }
+        .showcase-stat-val {
+          animation: statPop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+        }
+      `}</style>
+
       <div
+        ref={containerRef}
         style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 0,
+          alignItems: "start",
           position: "relative",
-          width: 600,
-          height: 600,
-          transformStyle: "preserve-3d",
-          transform: `rotateY(${angle}deg)`,
-          transition: reduced ? "none" : "transform 0.1s linear",
         }}
       >
-        {items.map((item, i) => {
-          const step = 360 / items.length;
-          const a = i * step;
-          const radius = 300;
-          return (
+        {/* ── LEFT: scrolling text cards ── */}
+        <div style={{ paddingRight: 48, position: "relative" }}>
+
+          {/* Vertical timeline line */}
+          <div style={{
+            position: "absolute",
+            left: -2,
+            top: "8vh",
+            bottom: "8vh",
+            width: 1,
+            background: "rgba(255,255,255,0.06)",
+            borderRadius: 999,
+            overflow: "hidden",
+          }}>
+            <div style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: `${((activeIndex + lineProgress) / items.length) * 100}%`,
+              background: `linear-gradient(to bottom, ${activeItem.color}, ${activeItem.accentColor})`,
+              borderRadius: 999,
+              transition: "height 0.1s linear, background 0.5s ease",
+              boxShadow: `0 0 12px ${activeItem.color}60`,
+            }} />
+          </div>
+
+          {items.map((item, i) => (
             <div
               key={item.label}
+              ref={(el) => (cardRefs.current[i] = el)}
               style={{
-                position: "absolute",
-                top: "50%",
-                left: "50%",
-                transformStyle: "preserve-3d",
-                transform: `translate(-50%, -50%) rotateY(${a}deg) translateZ(${radius}px)`,
+                minHeight: "88vh",
+                display: "flex",
+                alignItems: "center",
+                paddingTop: 40,
+                paddingBottom: 40,
+                paddingLeft: 28,
               }}
             >
-              <div style={{ textAlign: "center" }}>
-                <PhoneMockup
-                  screen={item.screen}
-                  tilt
-                  style={{
-                    width: 220,
-                    height: 440,
-                  }}
-                />
+              {/* Timeline dot */}
+              <div style={{
+                position: "absolute",
+                left: -6,
+                width: 13,
+                height: 13,
+                borderRadius: "50%",
+                background: activeIndex === i ? activeItem.color : "rgba(255,255,255,0.08)",
+                border: `2px solid ${activeIndex === i ? activeItem.color : "rgba(255,255,255,0.05)"}`,
+                boxShadow: activeIndex === i ? `0 0 18px ${activeItem.color}80` : "none",
+                transition: "all 0.4s ease",
+                zIndex: 2,
+              }} />
+
+              <div style={{
+                opacity: activeIndex === i ? 1 : 0.2,
+                transform: activeIndex === i
+                  ? "translateX(0px)"
+                  : i < activeIndex
+                    ? "translateX(-12px)"
+                    : "translateX(12px)",
+                transition: "opacity 0.6s cubic-bezier(0.16,1,0.3,1), transform 0.6s cubic-bezier(0.16,1,0.3,1)",
+                width: "100%",
+              }}>
+
+                {/* Index + badge row */}
+                <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 22 }}>
+                  <span style={{
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: 11,
+                    color: activeIndex === i ? item.color : "#3f3f46",
+                    transition: "color 0.4s ease",
+                    letterSpacing: 1,
+                  }}>
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+
+                  <div style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 7,
+                    background: activeIndex === i ? `${item.color}14` : "rgba(255,255,255,0.04)",
+                    border: `1px solid ${activeIndex === i ? `${item.color}30` : "rgba(255,255,255,0.06)"}`,
+                    borderRadius: 999,
+                    padding: "5px 14px",
+                    transition: "all 0.4s ease",
+                    animation: activeIndex === i ? "badgeSlideIn 0.4s ease both" : "none",
+                  }}>
+                    <span style={{ fontSize: 12, color: activeIndex === i ? item.color : "#52525b" }}>
+                      {item.icon}
+                    </span>
+                    <span style={{
+                      fontFamily: "'JetBrains Mono', monospace",
+                      fontSize: 9,
+                      color: activeIndex === i ? item.color : "#52525b",
+                      letterSpacing: 2.5,
+                      textTransform: "uppercase",
+                      transition: "color 0.4s ease",
+                    }}>
+                      {item.label}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Title */}
+                <h3 style={{
+                  fontFamily: "'Outfit', sans-serif",
+                  fontSize: "clamp(30px, 3.4vw, 48px)",
+                  fontWeight: 800,
+                  color: "#fff",
+                  letterSpacing: "-0.04em",
+                  marginBottom: 16,
+                  lineHeight: 1.05,
+                }}>
+                  {item.title.split(" ").map((word, wi) => (
+                    <span key={wi} style={{
+                      display: "inline-block",
+                      marginRight: "0.28em",
+                      color: wi === item.title.split(" ").length - 1
+                        ? activeIndex === i ? item.color : "#52525b"
+                        : "#fff",
+                      transition: "color 0.5s ease",
+                    }}>
+                      {word}
+                    </span>
+                  ))}
+                </h3>
+
+                {/* Description */}
+                <p style={{
+                  fontFamily: "'Outfit', sans-serif",
+                  fontSize: 16,
+                  color: "#71717a",
+                  lineHeight: 1.9,
+                  maxWidth: 400,
+                  marginBottom: 36,
+                }}>
+                  {item.desc}
+                </p>
+
+                {/* Stat card */}
                 <div
+                  key={`stat-${activeIndex}`}
                   style={{
-                    marginTop: 14,
-                    fontFamily: "'Outfit', sans-serif",
-                    fontSize: 13,
-                    color: "#71717a",
-                    fontWeight: 600,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 16,
+                    background: activeIndex === i
+                      ? `linear-gradient(135deg, ${item.color}10, ${item.color}05)`
+                      : "rgba(255,255,255,0.02)",
+                    border: `1px solid ${activeIndex === i ? `${item.color}22` : "rgba(255,255,255,0.05)"}`,
+                    borderRadius: 16,
+                    padding: "14px 22px",
+                    transition: "all 0.5s ease",
                   }}
                 >
-                  {item.label}
+                  <div>
+                    <div
+                      className={activeIndex === i ? "showcase-stat-val" : ""}
+                      style={{
+                        fontFamily: "'Outfit', sans-serif",
+                        fontSize: 28,
+                        fontWeight: 800,
+                        color: activeIndex === i ? item.color : "#3f3f46",
+                        letterSpacing: "-0.04em",
+                        lineHeight: 1,
+                        transition: "color 0.4s ease",
+                      }}
+                    >
+                      {item.stat.value}
+                    </div>
+                    <div style={{
+                      fontFamily: "'Outfit', sans-serif",
+                      fontSize: 11,
+                      color: "#52525b",
+                      marginTop: 4,
+                      letterSpacing: 0.5,
+                    }}>
+                      {item.stat.label}
+                    </div>
+                  </div>
+
+                  {/* Mini progress bar */}
+                  <div style={{
+                    width: 80,
+                    height: 4,
+                    background: "rgba(255,255,255,0.06)",
+                    borderRadius: 999,
+                    overflow: "hidden",
+                  }}>
+                    <div style={{
+                      height: "100%",
+                      width: activeIndex === i ? "100%" : "0%",
+                      background: `linear-gradient(90deg, ${item.color}, ${item.accentColor})`,
+                      borderRadius: 999,
+                      transition: "width 1.2s cubic-bezier(0.16,1,0.3,1) 0.2s",
+                      boxShadow: `0 0 8px ${item.color}60`,
+                    }} />
+                  </div>
                 </div>
+
               </div>
             </div>
-          );
-        })}
+          ))}
+        </div>
+
+        {/* ── RIGHT: sticky phone ── */}
+        <div style={{
+          position: "sticky",
+          top: "12vh",
+          height: "76vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          perspective: 1600,
+        }}>
+          <div style={{ position: "relative" }}>
+
+            {/* Outer ambient glow — color-reactive */}
+            <div style={{
+              position: "absolute",
+              inset: -80,
+              borderRadius: "50%",
+              background: `radial-gradient(circle, ${activeItem.color}22 0%, transparent 65%)`,
+              filter: "blur(50px)",
+              transition: "background 0.7s ease",
+              animation: "glowPulse 4s ease-in-out infinite",
+              pointerEvents: "none",
+            }} />
+
+            {/* Secondary accent glow */}
+            <div style={{
+              position: "absolute",
+              inset: -40,
+              borderRadius: "50%",
+              background: `radial-gradient(circle, ${activeItem.accentColor}14 0%, transparent 60%)`,
+              filter: "blur(30px)",
+              transition: "background 0.7s ease",
+              pointerEvents: "none",
+              transform: "translateY(20px)",
+            }} />
+
+            {/* Floating ring */}
+            <div style={{
+              position: "absolute",
+              inset: -30,
+              borderRadius: "50%",
+              border: `1px solid ${activeItem.color}18`,
+              transition: "border-color 0.6s ease",
+              animation: "glowPulse 6s ease-in-out infinite 1s",
+              pointerEvents: "none",
+            }} />
+
+            {/* Phone stack — crossfade with slide */}
+            <div style={{ position: "relative", width: 265, height: 528 }}>
+              {items.map((item, i) => {
+                const isActive = activeIndex === i;
+                const wasActive = prevIndex === i;
+                const goingDown = direction === 1;
+
+                return (
+                  <div
+                    key={item.label}
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      opacity: isActive ? 1 : 0,
+                      transform: isActive
+                        ? "translateY(0px) scale(1) rotateY(0deg)"
+                        : wasActive
+                          ? `translateY(${goingDown ? -30 : 30}px) scale(0.95) rotateY(${goingDown ? -3 : 3}deg)`
+                          : `translateY(${i > activeIndex ? 40 : -40}px) scale(0.93)`,
+                      transition: "opacity 0.55s cubic-bezier(0.16,1,0.3,1), transform 0.55s cubic-bezier(0.16,1,0.3,1)",
+                      pointerEvents: isActive ? "auto" : "none",
+                      transformStyle: "preserve-3d",
+                    }}
+                  >
+                    <PhoneMockup
+                      screen={item.screen}
+                      style={{
+                        width: 265,
+                        height: 528,
+                        boxShadow: `
+                          0 60px 120px rgba(0,0,0,0.7),
+                          0 0 60px ${item.color}22,
+                          0 0 20px ${item.color}10,
+                          inset 0 1px 0 rgba(255,255,255,0.10)
+                        `,
+                      }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Color-reactive dot nav */}
+            <div style={{
+              display: "flex",
+              justifyContent: "center",
+              gap: 7,
+              marginTop: 26,
+            }}>
+              {items.map((item, i) => (
+                <div
+                  key={i}
+                  style={{
+                    height: 6,
+                    width: activeIndex === i ? 24 : 6,
+                    borderRadius: 999,
+                    background: activeIndex === i
+                      ? `linear-gradient(90deg, ${item.color}, ${item.accentColor})`
+                      : "rgba(255,255,255,0.1)",
+                    boxShadow: activeIndex === i ? `0 0 12px ${item.color}80` : "none",
+                    transition: "all 0.45s cubic-bezier(0.34,1.56,0.64,1)",
+                  }}
+                />
+              ))}
+            </div>
+
+            {/* Active label pill */}
+            <div style={{
+              display: "flex",
+              justifyContent: "center",
+              marginTop: 14,
+            }}>
+              <div style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: 10,
+                color: activeItem.color,
+                background: `${activeItem.color}10`,
+                border: `1px solid ${activeItem.color}25`,
+                borderRadius: 999,
+                padding: "5px 16px",
+                letterSpacing: 2.5,
+                textTransform: "uppercase",
+                transition: "all 0.4s ease",
+                boxShadow: `0 0 16px ${activeItem.color}20`,
+              }}>
+                {activeItem.label}
+              </div>
+            </div>
+
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -2150,7 +3001,7 @@ function Showcase() {
 
       <div className="showcase-desktop-3d">
         <Reveal delay={0.1} direction="scale">
-          <Showcase3DCarousel />
+         <ShowcaseStackedCards />
         </Reveal>
       </div>
 
@@ -2310,15 +3161,32 @@ function WhySection() {
         </Reveal>
 
         <Reveal delay={0.2} direction="left">
-          <div className="why-phone-wrap" style={{ display: "flex", justifyContent: "center" }}>
-            <PhoneMockup
-              screen={<InsightsScreen />}
-              tilt
-              className="why-phone"
-              style={{ transform: "perspective(800px) rotateY(8deg)" }}
-            />
-          </div>
-        </Reveal>
+  <div
+    className="why-phone-wrap"
+    style={{
+  display: "flex",
+  justifyContent: "center",
+  position: "relative",
+  minHeight: 560,
+  alignItems: "center",
+  overflow: "hidden",
+  width: "100%",
+}}
+  >
+    <WireSphereBackground color={TEAL} />
+
+    <PhoneMockup
+      screen={<InsightsScreen />}
+      tilt
+      className="why-phone"
+      style={{
+        transform: "perspective(800px) rotateY(8deg)",
+        position: "relative",
+        zIndex: 2,
+      }}
+    />
+  </div>
+</Reveal>
       </div>
     </Section>
   );
@@ -2772,6 +3640,7 @@ function FAQ() {
 function FinalCTA() {
   return (
     <Section style={{ paddingBottom: 60 }}>
+      <SectionThreeBG color={AMBER} count={280} opacity={0.08} size={0.016}>
       <Reveal direction="scale">
         <GlassCard
           hover={false}
@@ -2838,20 +3707,22 @@ function FinalCTA() {
             Start planning, reflecting, and improving — all in one beautifully
             engineered experience.
           </p>
-          <div
-            style={{
-              display: "flex",
-              gap: 14,
-              justifyContent: "center",
-              flexWrap: "wrap",
-              position: "relative",
-            }}
-          >
-            <CTAButton>Join the Beta</CTAButton>
-            <CTAButton primary={false}>Learn More</CTAButton>
+         <div
+  className="final-cta-buttons"
+  style={{
+    display: "flex",
+    gap: 14,
+    justifyContent: "center",
+    flexWrap: "wrap",
+    position: "relative",
+  }}
+>
+          <ParticleBurst><CTAButton>Join the Beta</CTAButton></ParticleBurst>
+          <ParticleBurst><CTAButton primary={false}>Learn More</CTAButton></ParticleBurst>  
           </div>
         </GlassCard>
       </Reveal>
+      </SectionThreeBG>
     </Section>
   );
 }
@@ -2961,6 +3832,7 @@ function Footer() {
 
 /* ─── main app ─── */
 export default function LiquidGlassLanding() {
+  useSmoothScroll();
   return (
     <>
       <style>{`
@@ -2968,7 +3840,18 @@ export default function LiquidGlassLanding() {
 
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
-        body { background: ${BG}; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+        body { background: ${BG}; -webkit-overflow-scrolling: touch; }
+
+        @keyframes particleFly {
+  0% {
+    transform: translate(-50%, -50%) translate(0px, 0px) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) translate(var(--dx), var(--dy)) scale(0);
+    opacity: 0;
+  }
+}
 
         @keyframes orbFloat {
           0% { transform: translate(0, 0) scale(1); }
@@ -3026,25 +3909,15 @@ export default function LiquidGlassLanding() {
           gap: 40px;
           align-items: center;
           width: 100%;
+          overflow: visible;
         }
 
-        .showcase-phone {
-          width: clamp(160px, 18vw, 220px) !important;
-          height: clamp(320px, 36vw, 440px) !important;
-        }
 
-        .showcase-desktop-3d {
-          display: block;
-        }
 
-        .showcase-mobile-row {
-          display: none;
-        }
 
         .phone-mockup,
         .floating-card,
         .hero-phone,
-        .showcase-phone,
         .why-phone {
           will-change: transform;
           backface-visibility: hidden;
@@ -3061,156 +3934,298 @@ export default function LiquidGlassLanding() {
           }
         }
 
-        @media (max-width: 768px) {
-          .nav-desktop { display: none !important; }
-          .nav-mobile-btn { display: flex !important; align-items: center; justify-content: center; }
-          .header-cta { display: none !important; }
-          .header-subtitle { display: none !important; }
+        /* ── SHOWCASE STICKY SCROLL ── */
+.showcase-desktop-3d {
+  display: block;
+}
 
-          .section-wrapper {
-            padding-top: 60px !important;
-            padding-bottom: 60px !important;
-            padding-left: 16px !important;
-            padding-right: 16px !important;
-          }
+.showcase-mobile-row {
+  display: none;
+}
 
-          .hero-section {
-            padding-top: 120px !important;
-            min-height: auto !important;
-          }
+/* ─── MOBILE (max 768px) ─── */
+@media (max-width: 768px) {
 
-          .hero-grid {
-            grid-template-columns: 1fr !important;
-            gap: 40px !important;
-          }
+  /* ── NAV ── */
+  .nav-desktop { display: none !important; }
+  .nav-mobile-btn {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+  }
+  .header-cta { display: none !important; }
+  .header-subtitle { display: none !important; }
+  .header-logo-text span:first-child {
+    font-size: 13px !important;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 
-          .hero-visual {
-            min-height: 500px !important;
-            max-width: 100% !important;
-            overflow: visible;
-          }
+   .showcase-desktop-3d > div > div {
+    grid-template-columns: 1fr !important;
+  }
 
-          .hero-phone {
-            width: 240px !important;
-            height: 480px !important;
-          }
+  /* hide sticky phone column on mobile */
+  .showcase-desktop-3d > div > div > div:last-child {
+    display: none !important;
+  }
 
-          .hero-floating-card {
-            display: none !important;
-          }
+  /* remove right padding from text column */
+  .showcase-desktop-3d > div > div > div:first-child {
+    padding-right: 0 !important;
+  }
 
-          .hero-depth-card {
-            display: none !important;
-          }
+  /* collapse min-height on each text card so mobile doesn't have huge gaps */
+  .showcase-desktop-3d > div > div > div:first-child > div {
+    min-height: 60vh !important;
+    padding-top: 24px !important;
+    padding-bottom: 24px !important;
+  }
 
-          .hero-glow {
-            transform: scale(0.6) !important;
-          }
+.showcase-stack-phone {
+  display: none !important;
+}
 
-          .hero-badge-text {
-            font-size: 9px !important;
-            letter-spacing: 1px !important;
-          }
+  /* ── SECTIONS ── */
+  .section-wrapper {
+    padding-top: 60px !important;
+    padding-bottom: 60px !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    transform: none !important;
+    overflow-x: hidden !important;
+  }
 
-          .hero-badge {
-            padding: 6px 14px !important;
-          }
+  /* ── HERO ── */
+  .hero-section {
+    padding-top: 110px !important;
+    min-height: auto !important;
+    overflow-x: hidden !important;
+  }
 
-          .hero-buttons {
-            flex-direction: column !important;
-            align-items: stretch !important;
-          }
+  .hero-grid {
+    grid-template-columns: 1fr !important;
+    gap: 32px !important;
+  }
 
-          .hero-buttons button {
-            width: 100% !important;
-            text-align: center !important;
-          }
+  .hero-badge {
+    padding: 6px 12px !important;
+  }
 
-          .why-grid {
-            grid-template-columns: 1fr !important;
-            gap: 40px !important;
-          }
+  .hero-badge-text {
+    font-size: 9px !important;
+    letter-spacing: 0.8px !important;
+  }
 
-          .why-phone {
-            width: 240px !important;
-            height: 480px !important;
-          }
+  .hero-buttons {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
 
-          .showcase-desktop-3d {
-            display: none !important;
-          }
+  .hero-buttons button,
+  .hero-buttons > div,
+  .hero-buttons > div button {
+    width: 100% !important;
+    text-align: center !important;
+    box-sizing: border-box !important;
+  }
 
-          .showcase-mobile-row {
-            display: block !important;
-          }
+  .hero-stats {
+    gap: 14px !important;
+    flex-wrap: wrap !important;
+  }
 
-          .showcase-phones {
-            flex-wrap: nowrap !important;
-            overflow-x: auto !important;
-            -webkit-overflow-scrolling: touch;
-            scroll-snap-type: x mandatory;
-            padding-bottom: 20px !important;
-            justify-content: flex-start !important;
-            gap: 16px !important;
-            margin: 0 -16px !important;
-            padding-left: 16px !important;
-            padding-right: 16px !important;
-          }
+  .hero-stats > div {
+    flex: 1 1 calc(33% - 14px);
+    min-width: 70px;
+  }
 
-          .showcase-phones > div {
-            flex: 0 0 auto;
-            scroll-snap-align: center;
-          }
+  /* ── HERO VISUAL ── */
+  .hero-visual {
+    min-height: 420px !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+  }
 
-          .showcase-phone {
-            width: 180px !important;
-            height: 360px !important;
-          }
+  .hero-phone {
+    width: 230px !important;
+    height: 460px !important;
+  }
 
-          .features-grid {
-            grid-template-columns: 1fr !important;
-          }
+  .hero-floating-card {
+    display: none !important;
+  }
 
-          .testimonials-grid {
-            grid-template-columns: 1fr !important;
-          }
+  .hero-depth-card {
+    display: none !important;
+  }
 
-          .footer-inner {
-            flex-direction: column !important;
-            align-items: center !important;
-            text-align: center !important;
-            gap: 16px !important;
-          }
+  .hero-glow {
+    transform: scale(0.55) !important;
+    opacity: 0.6 !important;
+  }
 
-          .orb-element {
-            transform: scale(0.5) !important;
-          }
-        }
+  /* Hide hero rings on mobile to prevent overflow */
+  .hero-visual > div:first-child {
+    display: none !important;
+  }
 
-        @media (max-width: 400px) {
-          .hero-phone {
-            width: 220px !important;
-            height: 440px !important;
-          }
+  /* ── FEATURES ── */
+  .features-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
 
-          .hero-visual {
-            min-height: 420px !important;
-          }
+  /* ── SHOWCASE ── */
+  .showcase-desktop-3d {
+    display: none !important;
+  }
 
-          .showcase-phone {
-            width: 150px !important;
-            height: 300px !important;
-          }
+  .showcase-mobile-row {
+    display: block !important;
+    overflow: hidden !important;
+  }
 
-          .why-phone {
-            width: 220px !important;
-            height: 440px !important;
-          }
+  .showcase-phones {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 16px !important;
+    justify-content: flex-start !important;
+    gap: 14px !important;
+    margin: 0 -16px !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
 
-          .hero-title {
-            font-size: 32px !important;
-          }
-        }
+  .showcase-phones::-webkit-scrollbar {
+    display: none;
+  }
+
+  .showcase-phones > div {
+    flex: 0 0 auto !important;
+    scroll-snap-align: center !important;
+  }
+
+  .showcase-phone {
+    width: 175px !important;
+    height: 350px !important;
+  }
+
+  /* ── WHY SECTION ── */
+  .why-grid {
+    grid-template-columns: 1fr !important;
+    gap: 36px !important;
+  }
+
+  .why-phone-wrap {
+    min-height: 360px !important;
+    overflow: hidden !important;
+    width: 100% !important;
+  }
+
+  .why-phone {
+    width: 230px !important;
+    height: 460px !important;
+  }
+
+  /* ── CRAFTSMANSHIP ── */
+  .craft-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+
+  /* ── TESTIMONIALS ── */
+  .testimonials-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+
+  /* ── FAQ ── */
+  .faq-question {
+    font-size: 14px !important;
+  }
+
+  /* ── FINAL CTA ── */
+  .final-cta-buttons {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+
+  .final-cta-buttons > div,
+  .final-cta-buttons > div button {
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* ── FOOTER ── */
+  .footer-inner {
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    gap: 16px !important;
+  }
+
+  /* ── ORBS ── */
+  .orb-element {
+    transform: scale(0.4) !important;
+    opacity: 0.5 !important;
+  }
+
+  /* ── PREVENT GLOBAL HORIZONTAL OVERFLOW ── */
+  body {
+    overflow-x: hidden !important;
+  }
+}
+
+/* ─── SMALL MOBILE (max 400px) ─── */
+@media (max-width: 400px) {
+
+  .hero-phone {
+    width: 200px !important;
+    height: 400px !important;
+  }
+
+  .showcase-desktop-3d > div > div > div:first-child > div {
+    min-height: 50vh !important;
+  }
+
+  .hero-visual {
+    min-height: 380px !important;
+  }
+
+  .showcase-phone {
+    width: 150px !important;
+    height: 300px !important;
+  }
+
+  .why-phone {
+    width: 200px !important;
+    height: 400px !important;
+  }
+
+  .hero-title {
+    font-size: 30px !important;
+    letter-spacing: -0.03em !important;
+  }
+
+  .hero-badge-text {
+    font-size: 8px !important;
+  }
+
+  .section-wrapper {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+}
 
         @media (prefers-reduced-motion: reduce) {
           *,
@@ -3230,7 +4245,6 @@ export default function LiquidGlassLanding() {
           color: "#e4e4e7",
           minHeight: "100vh",
           position: "relative",
-          overflowX: "hidden",
         }}
       >
         <Orbs />
